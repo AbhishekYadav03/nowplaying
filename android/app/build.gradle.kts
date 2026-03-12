@@ -31,6 +31,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        setProperty("archivesBaseName", "NowPlaying_v${versionName}+${versionCode}")
     }
 
     buildTypes {

@@ -21,6 +21,7 @@ class UserModel {
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    print(data);
     return UserModel(
       uid: doc.id,
       displayName: data['displayName'] ?? 'User',

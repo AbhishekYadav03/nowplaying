@@ -10,7 +10,7 @@ final mediaServiceProvider = Provider<MediaService>((ref) {
 });
 
 final currentMediaProvider = StreamProvider<NowPlayingModel?>((ref) {
-  return ref.watch(mediaServiceProvider).mediaStream;
+  return ref.read(mediaServiceProvider).mediaStream;
 });
 
 class MediaInfo {
@@ -19,19 +19,14 @@ class MediaInfo {
   final String? albumArt;
   final String source;
 
-  const MediaInfo({
-    required this.title,
-    required this.artist,
-    this.albumArt,
-    required this.source,
-  });
+  const MediaInfo({required this.title, required this.artist, this.albumArt, required this.source});
 
   factory MediaInfo.fromMap(Map<dynamic, dynamic> map) {
     return MediaInfo(
-      title:    map['title']    ?? 'Unknown',
-      artist:   map['artist']   ?? 'Unknown',
+      title: map['title'] ?? 'Unknown',
+      artist: map['artist'] ?? 'Unknown',
       albumArt: map['albumArt'],
-      source:   map['source']   ?? 'Other',
+      source: map['source'] ?? 'Other',
     );
   }
 }
@@ -55,19 +50,20 @@ class MediaService {
 
   void _startListening() {
     try {
-      _platformSub = _eventChannel
-          .receiveBroadcastStream()
-          .listen((event) {
-            if (event == null) {
-              _handleMediaStopped();
-              return;
-            }
-            final info = MediaInfo.fromMap(event as Map);
-            _handleMediaChange(info);
-          }, onError: (e) {
-            // Platform channel not set up yet (e.g. running in simulator without plugin)
-            _controller.add(null);
-          });
+      _platformSub = _eventChannel.receiveBroadcastStream().listen(
+        (event) {
+          if (event == null) {
+            _handleMediaStopped();
+            return;
+          }
+          final info = MediaInfo.fromMap(event as Map);
+          _handleMediaChange(info);
+        },
+        onError: (e) {
+          // Platform channel not set up yet (e.g. running in simulator without plugin)
+          _controller.add(null);
+        },
+      );
     } catch (_) {
       // Silently fail on platforms where channel isn't registered
     }
@@ -106,20 +102,10 @@ class MediaService {
   }
 
   /// Manually set now playing (fallback for iOS)
-  Future<void> setManualNowPlaying({
-    required String title,
-    required String artist,
-    required MediaSource source,
-  }) async {
+  Future<void> setManualNowPlaying({required String title, required String artist, required MediaSource source}) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final model = NowPlayingModel(
-      uid: uid,
-      title: title,
-      artist: artist,
-      source: source,
-      isActive: true,
-    );
+    final model = NowPlayingModel(uid: uid, title: title, artist: artist, source: source, isActive: true);
     _controller.add(model);
     await _firestoreService.updateNowPlaying(model);
   }
@@ -133,10 +119,14 @@ class MediaService {
 
   static MediaSource _parseSource(String s) {
     switch (s.toLowerCase()) {
-      case 'spotify':      return MediaSource.spotify;
-      case 'youtube':      return MediaSource.youtube;
-      case 'apple music':  return MediaSource.appleMusic;
-      default:             return MediaSource.other;
+      case 'spotify':
+        return MediaSource.spotify;
+      case 'youtube':
+        return MediaSource.youtube;
+      case 'apple music':
+        return MediaSource.appleMusic;
+      default:
+        return MediaSource.other;
     }
   }
 

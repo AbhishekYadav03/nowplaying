@@ -2,22 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:nowplaying/models/now_playing_model.dart';
 import '../../app/theme.dart';
 import '../../services/firestore_service.dart';
 import '../../services/media_service.dart';
 import '../../widgets/now_playing_card.dart';
+
+final friendsFeedProvider = StreamProvider.family<List<NowPlayingModel>, String>((ref, uid) {
+  return ref.read(firestoreServiceProvider).friendsFeedStream(uid);
+});
 
 class FeedScreen extends ConsumerWidget {
   const FeedScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final uid = FirebaseAuth.instance.currentUser?.uid;
 
-    final feedAsync = ref.watch(
-      StreamProvider((ref) => ref.read(firestoreServiceProvider).friendsFeedStream(uid)),
-    );
+    if (uid == null) {
+      return const Scaffold(body: Center(child: Text("Not logged in")));
+    }
 
+    final feedAsync = ref.watch(friendsFeedProvider(uid));
     final myMedia = ref.watch(currentMediaProvider);
 
     return Scaffold(
@@ -29,10 +35,7 @@ class FeedScreen extends ConsumerWidget {
           SliverToBoxAdapter(child: _buildSectionLabel('Friends')),
           feedAsync.when(
             loading: () => SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (_, i) => const NowPlayingCardSkeleton(),
-                childCount: 3,
-              ),
+              delegate: SliverChildBuilderDelegate((_, i) => const NowPlayingCardSkeleton(), childCount: 3),
             ),
             error: (e, _) => SliverToBoxAdapter(child: _buildError(e.toString())),
             data: (items) {
@@ -43,8 +46,7 @@ class FeedScreen extends ConsumerWidget {
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) => NowPlayingCard(
                     model: items[i],
-                    onReact: (emoji) =>
-                        ref.read(firestoreServiceProvider).sendReaction(items[i].uid, emoji),
+                    onReact: (emoji) => ref.read(firestoreServiceProvider).sendReaction(items[i].uid, emoji),
                   ),
                   childCount: items.length,
                 ),
@@ -68,12 +70,7 @@ class FeedScreen extends ConsumerWidget {
             shaderCallback: (bounds) => AppColors.brandGradient.createShader(bounds),
             child: const Text(
               'NowPlaying',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-                color: Colors.white,
-              ),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white),
             ),
           ),
         ],
@@ -92,20 +89,18 @@ class FeedScreen extends ConsumerWidget {
   }
 
   Widget _buildMyStatusBar(BuildContext context, WidgetRef ref, String uid) {
-    return ref.watch(currentMediaProvider).when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (media) {
-        if (media == null) {
-          return _buildNotPlayingBanner(context, ref);
-        }
-        return NowPlayingCard(
-          model: media,
-          isOwn: true,
-          canReact: false,
+    return ref
+        .watch(currentMediaProvider)
+        .when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (media) {
+            if (media == null) {
+              return _buildNotPlayingBanner(context, ref);
+            }
+            return NowPlayingCard(model: media, isOwn: true, canReact: false);
+          },
         );
-      },
-    );
   }
 
   Widget _buildNotPlayingBanner(BuildContext context, WidgetRef ref) {
@@ -122,10 +117,7 @@ class FeedScreen extends ConsumerWidget {
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceHigh,
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: BoxDecoration(color: AppColors.surfaceHigh, borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.music_off_rounded, color: AppColors.textTertiary, size: 18),
           ),
           const SizedBox(width: 12),

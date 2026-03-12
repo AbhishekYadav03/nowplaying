@@ -14,10 +14,7 @@ class FirestoreService {
   // ── Users ─────────────────────────────────────────────────────────────────
 
   Future<void> upsertUser(UserModel user) async {
-    await _db.collection('users').doc(user.uid).set(
-      user.toMap(),
-      SetOptions(merge: true),
-    );
+    await _db.collection('users').doc(user.uid).set(user.toMap(), SetOptions(merge: true));
   }
 
   Future<void> updateFcmToken(String uid, String token) async {
@@ -27,16 +24,14 @@ class FirestoreService {
   Future<void> updateSharingEnabled(String uid, bool enabled) async {
     await _db.collection('users').doc(uid).update({'isSharingEnabled': enabled});
     if (!enabled) {
-      await _db.collection('nowplaying').doc(uid).set(
-        {'isActive': false},
-        SetOptions(merge: true),
-      );
+      await _db.collection('nowplaying').doc(uid).set({'isActive': false}, SetOptions(merge: true));
     }
   }
 
   Stream<UserModel?> userStream(String uid) {
     return _db.collection('users').doc(uid).snapshots().map((snap) {
       if (!snap.exists) return null;
+      print(snap);
       return UserModel.fromFirestore(snap);
     });
   }
@@ -86,11 +81,7 @@ class FirestoreService {
   }
 
   Future<UserModel?> findUserByDisplayName(String name) async {
-    final snap = await _db
-        .collection('users')
-        .where('displayName', isEqualTo: name)
-        .limit(1)
-        .get();
+    final snap = await _db.collection('users').where('displayName', isEqualTo: name).limit(1).get();
     if (snap.docs.isEmpty) return null;
     return UserModel.fromFirestore(snap.docs.first);
   }
@@ -98,17 +89,14 @@ class FirestoreService {
   // ── Now Playing ───────────────────────────────────────────────────────────
 
   Future<void> updateNowPlaying(NowPlayingModel info) async {
-    await _db.collection('nowplaying').doc(info.uid).set(
-      info.toMap(),
-      SetOptions(merge: true),
-    );
+    await _db.collection('nowplaying').doc(info.uid).set(info.toMap(), SetOptions(merge: true));
   }
 
   Future<void> clearNowPlaying(String uid) async {
-    await _db.collection('nowplaying').doc(uid).set(
-      {'isActive': false, 'updatedAt': FieldValue.serverTimestamp()},
-      SetOptions(merge: true),
-    );
+    await _db.collection('nowplaying').doc(uid).set({
+      'isActive': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   /// Streams the authenticated user's own now-playing doc
@@ -136,18 +124,11 @@ class FirestoreService {
           .snapshots()
           .asyncMap((snap) async {
             final uids = snap.docs.map((d) => d.id).toList();
-            final userDocs = await _db
-                .collection('users')
-                .where(FieldPath.documentId, whereIn: uids)
-                .get();
+            final userDocs = await _db.collection('users').where(FieldPath.documentId, whereIn: uids).get();
             final userMap = {for (final u in userDocs.docs) u.id: u.data()};
             return snap.docs.map((d) {
               final u = userMap[d.id];
-              return NowPlayingModel.fromFirestore(
-                d,
-                userName: u?['displayName'],
-                userPhoto: u?['photoURL'],
-              );
+              return NowPlayingModel.fromFirestore(d, userName: u?['displayName'], userPhoto: u?['photoURL']);
             }).toList();
           });
     });
@@ -158,15 +139,11 @@ class FirestoreService {
   Future<void> sendReaction(String toUid, String emoji) async {
     final fromUid = FirebaseAuth.instance.currentUser?.uid;
     if (fromUid == null) return;
-    await _db
-        .collection('nowplaying')
-        .doc(toUid)
-        .collection('reactions')
-        .add({
-          'fromUid': fromUid,
-          'emoji': emoji,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+    await _db.collection('nowplaying').doc(toUid).collection('reactions').add({
+      'fromUid': fromUid,
+      'emoji': emoji,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Stream<List<ReactionModel>> reactionsStream(String uid) {

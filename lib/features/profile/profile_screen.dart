@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:nowplaying/models/user_model.dart';
 import '../../app/theme.dart';
 import '../../services/firestore_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/media_service.dart';
 import '../../models/now_playing_model.dart';
+
+final userProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
+  return ref.read(firestoreServiceProvider).userStream(uid);
+});
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -14,9 +19,9 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final userAsync = ref.watch(StreamProvider((ref) =>
-        ref.read(firestoreServiceProvider).userStream(uid)));
+    print(uid);
 
+    final userAsync = ref.watch(userProvider(uid));
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -81,10 +86,7 @@ class ProfileScreen extends ConsumerWidget {
               // Sharing toggle
               _buildSection(
                 title: 'PRIVACY',
-                child: _SharingToggle(
-                  uid: uid,
-                  isSharingEnabled: user.isSharingEnabled,
-                ),
+                child: _SharingToggle(uid: uid, isSharingEnabled: user.isSharingEnabled),
               ),
 
               const SizedBox(height: 16),
@@ -102,11 +104,7 @@ class ProfileScreen extends ConsumerWidget {
                 title: 'ACCOUNT',
                 child: Column(
                   children: [
-                    _SettingsTile(
-                      icon: Icons.info_outline_rounded,
-                      label: 'About NowPlaying',
-                      onTap: () {},
-                    ),
+                    _SettingsTile(icon: Icons.info_outline_rounded, label: 'About NowPlaying', onTap: () {}),
                     const Divider(height: 1, color: AppColors.border),
                     _SettingsTile(
                       icon: Icons.logout_rounded,
@@ -168,9 +166,7 @@ class _SharingToggle extends ConsumerWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isSharingEnabled
-                  ? AppColors.primary.withOpacity(0.15)
-                  : AppColors.surfaceHigh,
+              color: isSharingEnabled ? AppColors.primary.withOpacity(0.15) : AppColors.surfaceHigh,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -184,8 +180,10 @@ class _SharingToggle extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Share Now Playing',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                const Text(
+                  'Share Now Playing',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                ),
                 Text(
                   isSharingEnabled ? 'Friends can see your activity' : 'Activity is hidden (Ghost Mode)',
                   style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
@@ -215,7 +213,7 @@ class _ManualTrackEntry extends StatefulWidget {
 }
 
 class _ManualTrackEntryState extends State<_ManualTrackEntry> {
-  final _titleCtrl  = TextEditingController();
+  final _titleCtrl = TextEditingController();
   final _artistCtrl = TextEditingController();
   MediaSource _source = MediaSource.spotify;
 
@@ -253,41 +251,33 @@ class _ManualTrackEntryState extends State<_ManualTrackEntry> {
             value: _source,
             dropdownColor: AppColors.surfaceHigh,
             style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-            decoration: const InputDecoration(
-              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
-            items: MediaSource.values.map((s) => DropdownMenuItem(
-              value: s,
-              child: Text(s.label),
-            )).toList(),
+            decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+            items: MediaSource.values.map((s) => DropdownMenuItem(value: s, child: Text(s.label))).toList(),
             onChanged: (val) => setState(() => _source = val!),
           ),
           const SizedBox(height: 12),
           GestureDetector(
             onTap: () async {
               if (_titleCtrl.text.isEmpty || _artistCtrl.text.isEmpty) return;
-              await widget.ref.read(mediaServiceProvider).setManualNowPlaying(
-                title: _titleCtrl.text.trim(),
-                artist: _artistCtrl.text.trim(),
-                source: _source,
-              );
+              await widget.ref
+                  .read(mediaServiceProvider)
+                  .setManualNowPlaying(title: _titleCtrl.text.trim(), artist: _artistCtrl.text.trim(), source: _source);
               _titleCtrl.clear();
               _artistCtrl.clear();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Now playing updated!'),
-                    backgroundColor: AppColors.primary));
+                  const SnackBar(content: Text('Now playing updated!'), backgroundColor: AppColors.primary),
+                );
               }
             },
             child: Container(
               height: 44,
-              decoration: BoxDecoration(
-                gradient: AppColors.brandGradient,
-                borderRadius: BorderRadius.circular(12),
-              ),
+              decoration: BoxDecoration(gradient: AppColors.brandGradient, borderRadius: BorderRadius.circular(12)),
               child: const Center(
-                child: Text('Broadcast', style: TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                child: Text(
+                  'Broadcast',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                ),
               ),
             ),
           ),
@@ -303,12 +293,7 @@ class _SettingsTile extends StatelessWidget {
   final VoidCallback onTap;
   final Color? color;
 
-  const _SettingsTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
+  const _SettingsTile({required this.icon, required this.label, required this.onTap, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -316,7 +301,10 @@ class _SettingsTile extends StatelessWidget {
     return ListTile(
       onTap: onTap,
       leading: Icon(icon, color: c, size: 20),
-      title: Text(label, style: TextStyle(color: c, fontSize: 15, fontWeight: FontWeight.w500)),
+      title: Text(
+        label,
+        style: TextStyle(color: c, fontSize: 15, fontWeight: FontWeight.w500),
+      ),
       trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary, size: 20),
     );
   }

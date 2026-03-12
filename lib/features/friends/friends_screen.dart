@@ -8,6 +8,10 @@ import '../../services/firestore_service.dart';
 import '../../models/user_model.dart';
 import '../../widgets/gradient_button.dart';
 
+final userProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
+  return ref.read(firestoreServiceProvider).userStream(uid);
+});
+
 class FriendsScreen extends ConsumerStatefulWidget {
   const FriendsScreen({super.key});
 
@@ -25,7 +29,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   Future<void> _search() async {
     final name = _searchCtrl.text.trim();
     if (name.isEmpty) return;
-    setState(() { _searching = true; _searchResult = null; _searchError = null; });
+    setState(() {
+      _searching = true;
+      _searchResult = null;
+      _searchError = null;
+    });
     try {
       final user = await ref.read(firestoreServiceProvider).findUserByDisplayName(name);
       setState(() {
@@ -46,14 +54,13 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     try {
       await ref.read(firestoreServiceProvider).addFriend(myUid, friendUid);
       _searchCtrl.clear();
-      setState(() { _searchResult = null; });
+      setState(() {
+        _searchResult = null;
+      });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Friend added!'),
-            backgroundColor: AppColors.online,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Friend added!'), backgroundColor: AppColors.online));
       }
     } finally {
       if (mounted) setState(() => _addLoading = false);
@@ -62,9 +69,13 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final userAsync = ref.watch(StreamProvider((ref) =>
-      ref.read(firestoreServiceProvider).userStream(uid)));
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    if (uid == null) {
+      return const Scaffold(body: Center(child: Text("User not logged in")));
+    }
+
+    final userAsync = ref.watch(userProvider(uid));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -84,9 +95,15 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
           const SizedBox(height: 24),
 
           // Add by name
-          const Text('Add Friend by Name',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-              color: AppColors.textTertiary, letterSpacing: 0.8)),
+          const Text(
+            'Add Friend by Name',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textTertiary,
+              letterSpacing: 0.8,
+            ),
+          ),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -107,14 +124,15 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 child: Container(
                   width: 50,
                   height: 50,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.brandGradient,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  decoration: BoxDecoration(gradient: AppColors.brandGradient, borderRadius: BorderRadius.circular(14)),
                   child: _searching
-                      ? const Center(child: SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)))
+                      ? const Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          ),
+                        )
                       : const Icon(Icons.arrow_forward_rounded, color: Colors.white),
                 ),
               ),
@@ -124,16 +142,19 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             const SizedBox(height: 8),
             Text(_searchError!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
           ],
-          if (_searchResult != null) ...[
-            const SizedBox(height: 12),
-            _buildSearchResult(_searchResult!),
-          ],
+          if (_searchResult != null) ...[const SizedBox(height: 12), _buildSearchResult(_searchResult!)],
           const SizedBox(height: 28),
 
           // Friends list
-          const Text('Your Friends',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-              color: AppColors.textTertiary, letterSpacing: 0.8)),
+          const Text(
+            'Your Friends',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textTertiary,
+              letterSpacing: 0.8,
+            ),
+          ),
           const SizedBox(height: 10),
           userAsync.when(
             loading: () => const CircularProgressIndicator(),
@@ -143,8 +164,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 return const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Center(
-                    child: Text('No friends yet. Add someone above!',
-                      style: TextStyle(color: AppColors.textTertiary, fontSize: 14)),
+                    child: Text(
+                      'No friends yet. Add someone above!',
+                      style: TextStyle(color: AppColors.textTertiary, fontSize: 14),
+                    ),
                   ),
                 );
               }
@@ -152,9 +175,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 future: ref.read(firestoreServiceProvider).getFriends(user.friends),
                 builder: (context, snap) {
                   if (!snap.hasData) return const CircularProgressIndicator();
-                  return Column(
-                    children: snap.data!.map((f) => _buildFriendTile(f, uid)).toList(),
-                  );
+                  return Column(children: snap.data!.map((f) => _buildFriendTile(f, uid)).toList());
                 },
               );
             },
@@ -169,9 +190,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary.withOpacity(0.15), AppColors.pink.withOpacity(0.1)],
-        ),
+        gradient: LinearGradient(colors: [AppColors.primary.withOpacity(0.15), AppColors.pink.withOpacity(0.1)]),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.primary.withOpacity(0.25)),
       ),
@@ -182,8 +201,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             children: [
               Icon(Icons.link_rounded, color: AppColors.primary, size: 18),
               SizedBox(width: 7),
-              Text('Your Invite Code',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+              Text(
+                'Your Invite Code',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -202,8 +223,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               GestureDetector(
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: code));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Code copied!'), backgroundColor: AppColors.primary));
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('Code copied!'), backgroundColor: AppColors.primary));
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -216,7 +238,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                     children: [
                       Icon(Icons.copy_rounded, color: AppColors.primary, size: 15),
                       SizedBox(width: 5),
-                      Text('Copy', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w700)),
+                      Text(
+                        'Copy',
+                        style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
                     ],
                   ),
                 ),
@@ -224,8 +249,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          const Text('Share this code with friends so they can add you.',
-            style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+          const Text(
+            'Share this code with friends so they can add you.',
+            style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+          ),
         ],
       ),
     ).animate().fadeIn(duration: 300.ms);
@@ -246,27 +273,34 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             backgroundColor: AppColors.primary.withOpacity(0.2),
             backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
             child: user.photoURL == null
-                ? Text(user.displayName[0].toUpperCase(),
-                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700))
+                ? Text(
+                    user.displayName[0].toUpperCase(),
+                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+                  )
                 : null,
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(user.displayName,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            child: Text(
+              user.displayName,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            ),
           ),
           GestureDetector(
             onTap: _addLoading ? null : () => _addFriend(user.uid),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: AppColors.brandGradient,
-                borderRadius: BorderRadius.circular(10),
-              ),
+              decoration: BoxDecoration(gradient: AppColors.brandGradient, borderRadius: BorderRadius.circular(10)),
               child: _addLoading
-                  ? const SizedBox(width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text(
+                      'Add',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                    ),
             ),
           ),
         ],
@@ -290,14 +324,18 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             backgroundColor: AppColors.primary.withOpacity(0.2),
             backgroundImage: friend.photoURL != null ? NetworkImage(friend.photoURL!) : null,
             child: friend.photoURL == null
-                ? Text(friend.displayName[0].toUpperCase(),
-                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700))
+                ? Text(
+                    friend.displayName[0].toUpperCase(),
+                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+                  )
                 : null,
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(friend.displayName,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            child: Text(
+              friend.displayName,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            ),
           ),
           GestureDetector(
             onTap: () async {
@@ -306,8 +344,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 builder: (_) => AlertDialog(
                   backgroundColor: AppColors.surface,
                   title: const Text('Remove Friend', style: TextStyle(color: AppColors.textPrimary)),
-                  content: Text('Remove ${friend.displayName}?',
-                    style: const TextStyle(color: AppColors.textSecondary)),
+                  content: Text(
+                    'Remove ${friend.displayName}?',
+                    style: const TextStyle(color: AppColors.textSecondary),
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
