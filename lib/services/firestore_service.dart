@@ -1,0 +1,182 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/user_model.dart';
+import '../models/now_playing_model.dart';
+
+final firestoreServiceProvider = Provider<FirestoreService>((ref) {
+  return FirestoreService();
+});
+
+class FirestoreService {
+  final _db = FirebaseFirestore.instance;
+
+  // ── Users ─────────────────────────────────────────────────────────────────
+
+  Future<void> upsertUser(UserModel user) async {
+    await _db.collection('users').doc(user.uid).set(
+      user.toMap(),
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> updateFcmToken(String uid, String token) async {
+    await _db.collection('users').doc(uid).update({'fcmToken': token});
+  }
+
+  Future<void> updateSharingEnabled(String uid, bool enabled) async {
+    await _db.collection('users').doc(uid).update({'isSharingEnabled': enabled});
+    if (!enabled) {
+      await _db.collection('nowplaying').doc(uid).set(
+        {'isActive': false},
+        SetOptions(merge: true),
+      );
+    }
+  }
+
+  Stream<UserModel?> userStream(String uid) {
+    return _db.collection('users').doc(uid).snapshots().map((snap) {
+      if (!snap.exists) return null;
+      return UserModel.fromFirestore(snap);
+    });
+  }
+
+  Future<UserModel?> getUser(String uid) async {
+    final doc = await _db.collection('users').doc(uid).get();
+    if (!doc.exists) return null;
+    return UserModel.fromFirestore(doc);
+  }
+
+  // ── Friends ───────────────────────────────────────────────────────────────
+
+  Future<void> addFriend(String myUid, String friendUid) async {
+    final batch = _db.batch();
+    batch.update(_db.collection('users').doc(myUid), {
+      'friends': FieldValue.arrayUnion([friendUid]),
+    });
+    batch.update(_db.collection('users').doc(friendUid), {
+      'friends': FieldValue.arrayUnion([myUid]),
+    });
+    await batch.commit();
+  }
+
+  Future<void> removeFriend(String myUid, String friendUid) async {
+    final batch = _db.batch();
+    batch.update(_db.collection('users').doc(myUid), {
+      'friends': FieldValue.arrayRemove([friendUid]),
+    });
+    batch.update(_db.collection('users').doc(friendUid), {
+      'friends': FieldValue.arrayRemove([myUid]),
+    });
+    await batch.commit();
+  }
+
+  Future<List<UserModel>> getFriends(List<String> uids) async {
+    if (uids.isEmpty) return [];
+    final chunks = <List<String>>[];
+    for (var i = 0; i < uids.length; i += 10) {
+      chunks.add(uids.sublist(i, i + 10 > uids.length ? uids.length : i + 10));
+    }
+    final results = <UserModel>[];
+    for (final chunk in chunks) {
+      final snap = await _db.collection('users').where(FieldPath.documentId, whereIn: chunk).get();
+      results.addAll(snap.docs.map(UserModel.fromFirestore));
+    }
+    return results;
+  }
+
+  Future<UserModel?> findUserByDisplayName(String name) async {
+    final snap = await _db
+        .collection('users')
+        .where('displayName', isEqualTo: name)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return UserModel.fromFirestore(snap.docs.first);
+  }
+
+  // ── Now Playing ───────────────────────────────────────────────────────────
+
+  Future<void> updateNowPlaying(NowPlayingModel info) async {
+    await _db.collection('nowplaying').doc(info.uid).set(
+      info.toMap(),
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> clearNowPlaying(String uid) async {
+    await _db.collection('nowplaying').doc(uid).set(
+      {'isActive': false, 'updatedAt': FieldValue.serverTimestamp()},
+      SetOptions(merge: true),
+    );
+  }
+
+  /// Streams the authenticated user's own now-playing doc
+  Stream<NowPlayingModel?> myNowPlayingStream(String uid) {
+    return _db.collection('nowplaying').doc(uid).snapshots().map((snap) {
+      if (!snap.exists) return null;
+      return NowPlayingModel.fromFirestore(snap);
+    });
+  }
+
+  /// Streams friends' now-playing docs with user info joined
+  Stream<List<NowPlayingModel>> friendsFeedStream(String uid) {
+    return _db.collection('users').doc(uid).snapshots().asyncExpand((userSnap) {
+      if (!userSnap.exists) return Stream.value([]);
+      final friends = List<String>.from((userSnap.data() as Map<String, dynamic>)['friends'] ?? []);
+      if (friends.isEmpty) return Stream.value([]);
+
+      // Firestore whereIn supports max 30 items
+      final batch = friends.take(30).toList();
+      return _db
+          .collection('nowplaying')
+          .where(FieldPath.documentId, whereIn: batch)
+          .where('isActive', isEqualTo: true)
+          .orderBy('updatedAt', descending: true)
+          .snapshots()
+          .asyncMap((snap) async {
+            final uids = snap.docs.map((d) => d.id).toList();
+            final userDocs = await _db
+                .collection('users')
+                .where(FieldPath.documentId, whereIn: uids)
+                .get();
+            final userMap = {for (final u in userDocs.docs) u.id: u.data()};
+            return snap.docs.map((d) {
+              final u = userMap[d.id];
+              return NowPlayingModel.fromFirestore(
+                d,
+                userName: u?['displayName'],
+                userPhoto: u?['photoURL'],
+              );
+            }).toList();
+          });
+    });
+  }
+
+  // ── Reactions ─────────────────────────────────────────────────────────────
+
+  Future<void> sendReaction(String toUid, String emoji) async {
+    final fromUid = FirebaseAuth.instance.currentUser?.uid;
+    if (fromUid == null) return;
+    await _db
+        .collection('nowplaying')
+        .doc(toUid)
+        .collection('reactions')
+        .add({
+          'fromUid': fromUid,
+          'emoji': emoji,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  Stream<List<ReactionModel>> reactionsStream(String uid) {
+    return _db
+        .collection('nowplaying')
+        .doc(uid)
+        .collection('reactions')
+        .orderBy('createdAt', descending: true)
+        .limit(20)
+        .snapshots()
+        .map((snap) => snap.docs.map(ReactionModel.fromFirestore).toList());
+  }
+}

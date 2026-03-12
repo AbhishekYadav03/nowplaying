@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function isFriendOf(uid) {
+      return request.auth.uid in get(/databases/$(database)/documents/users/$(uid)).data.friends;
+    }
+
+    // ── Users ──────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      // Any signed-in user can read another user's basic profile (for friend search)
+      allow read: if isSignedIn();
+      // Only the owner can write their own user doc
+      allow write: if isOwner(uid);
+    }
+
+    // ── Now Playing ────────────────────────────────────────────────────────
+    match /nowplaying/{uid} {
+      // Only the owner can write their now-playing
+      allow write: if isOwner(uid);
+      // Only confirmed friends OR the owner can read
+      allow read: if isOwner(uid) || isFriendOf(uid);
+
+      // ── Reactions ────────────────────────────────────────────────────────
+      match /reactions/{reactionId} {
+        // Only confirmed friends can create a reaction
+        allow create: if isSignedIn() && isFriendOf(uid)
+          && request.resource.data.fromUid == request.auth.uid
+          && request.resource.data.emoji is string
+          && request.resource.data.emoji.size() <= 10;
+        // Owner and the sender can read reactions
+        allow read: if isOwner(uid) || request.auth.uid == resource.data.fromUid;
+        // No updates or deletes from client
+        allow update, delete: if false;
+      }
+    }
+
+  }
+}

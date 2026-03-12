@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "723703253854",
+    "project_id": "heart-beat-1108",
+    "storage_bucket": "heart-beat-1108.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:723703253854:android:3c04f7b3ea44b79a9e9dcf",
+        "android_client_info": {
+          "package_name": "com.heartbeat.musk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_BKBXcdbF_TOJ0-TjhTJz9VLz_t-wEoA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
