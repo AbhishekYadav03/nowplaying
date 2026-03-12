@@ -6,9 +6,10 @@ import 'firestore_service.dart';
 import '../models/now_playing_model.dart';
 
 final mediaServiceProvider = Provider<MediaService>((ref) {
-  return MediaService(ref.read(firestoreServiceProvider));
+  final service = MediaService(ref.read(firestoreServiceProvider));
+  ref.onDispose(service.dispose);
+  return service;
 });
-
 final currentMediaProvider = StreamProvider<NowPlayingModel?>((ref) {
   return ref.read(mediaServiceProvider).mediaStream;
 });
@@ -128,6 +129,15 @@ class MediaService {
       default:
         return MediaSource.other;
     }
+  }
+
+  static Future<bool> hasAccess() async {
+    final result = await _methodChannel.invokeMethod<bool>('hasNotificationAccess');
+    return result ?? false;
+  }
+
+  static Future<void> openSettings() async {
+    await _methodChannel.invokeMethod('openNotificationSettings');
   }
 
   void dispose() {

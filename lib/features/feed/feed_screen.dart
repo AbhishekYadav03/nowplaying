@@ -3,20 +3,58 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:nowplaying/models/now_playing_model.dart';
-import '../../app/theme.dart';
-import '../../services/firestore_service.dart';
-import '../../services/media_service.dart';
-import '../../widgets/now_playing_card.dart';
+import 'package:nowplaying/app/theme.dart';
+import 'package:nowplaying/services/firestore_service.dart';
+import 'package:nowplaying/services/media_service.dart';
+
+import 'package:nowplaying/widgets/now_playing_card.dart';
 
 final friendsFeedProvider = StreamProvider.family<List<NowPlayingModel>, String>((ref, uid) {
   return ref.read(firestoreServiceProvider).friendsFeedStream(uid);
 });
 
-class FeedScreen extends ConsumerWidget {
+class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FeedScreen> createState() => _FeedScreenState();
+}
+
+class _FeedScreenState extends ConsumerState<FeedScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkPermission();
+  }
+
+  Future<void> _checkPermission() async {
+    final hasAccess = await MediaService.hasAccess();
+
+    if (!hasAccess && mounted) {
+      await showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text("Enable Music Detection"),
+            content: const Text("Allow notification access so the app can detect the song you are playing."),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await MediaService.openSettings();
+                },
+                child: const Text("Enable"),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     if (uid == null) {
@@ -24,7 +62,6 @@ class FeedScreen extends ConsumerWidget {
     }
 
     final feedAsync = ref.watch(friendsFeedProvider(uid));
-    final myMedia = ref.watch(currentMediaProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -33,15 +70,19 @@ class FeedScreen extends ConsumerWidget {
           _buildAppBar(context),
           SliverToBoxAdapter(child: _buildMyStatusBar(context, ref, uid)),
           SliverToBoxAdapter(child: _buildSectionLabel('Friends')),
+
           feedAsync.when(
             loading: () => SliverList(
               delegate: SliverChildBuilderDelegate((_, i) => const NowPlayingCardSkeleton(), childCount: 3),
             ),
+
             error: (e, _) => SliverToBoxAdapter(child: _buildError(e.toString())),
+
             data: (items) {
               if (items.isEmpty) {
                 return SliverToBoxAdapter(child: _buildEmptyState());
               }
+
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) => NowPlayingCard(
@@ -53,6 +94,7 @@ class FeedScreen extends ConsumerWidget {
               );
             },
           ),
+
           const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
       ),
@@ -75,12 +117,6 @@ class FeedScreen extends ConsumerWidget {
           ),
         ],
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined, color: AppColors.textSecondary),
-          onPressed: () {},
-        ),
-      ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(height: 0.5, color: AppColors.border),
@@ -93,17 +129,17 @@ class FeedScreen extends ConsumerWidget {
         .watch(currentMediaProvider)
         .when(
           loading: () => const SizedBox.shrink(),
-          error: (_, _) => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
           data: (media) {
             if (media == null) {
-              return _buildNotPlayingBanner(context, ref);
+              return _buildNotPlayingBanner(context);
             }
             return NowPlayingCard(model: media, isOwn: true, canReact: false);
           },
         );
   }
 
-  Widget _buildNotPlayingBanner(BuildContext context, WidgetRef ref) {
+  Widget _buildNotPlayingBanner(BuildContext context) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
