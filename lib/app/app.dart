@@ -10,7 +10,7 @@ class NowPlayingApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     return MaterialApp.router(
-      title: 'NowPlaying',
+      title: 'Softsync',
       theme: AppTheme.dark,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
