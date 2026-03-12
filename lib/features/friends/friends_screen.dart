@@ -174,7 +174,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               return FutureBuilder<List<UserModel>>(
                 future: ref.read(firestoreServiceProvider).getFriends(user.friends),
                 builder: (context, snap) {
-                  if (!snap.hasData) return const CircularProgressIndicator();
+                  if (!snap.hasData) return Center(child: const CircularProgressIndicator());
                   return Column(children: snap.data!.map((f) => _buildFriendTile(f, uid)).toList());
                 },
               );
