@@ -96,7 +96,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
 
           // Add by name
           const Text(
-            'Add Friend by Name',
+            'Add Friend by Invite code',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
