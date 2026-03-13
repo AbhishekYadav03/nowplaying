@@ -134,7 +134,7 @@ class ProfileScreen extends ConsumerWidget {
                     ).createShader(bounds),
                     child:
                         Text(
-                              'Made with ❤️ by Abhi',
+                              'Made with ❤️ for Musk',
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 fontSize: 14,
