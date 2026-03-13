@@ -14,7 +14,8 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
 class FirestoreService {
   final _db = FirebaseFirestore.instance;
 
-  static const String _imgbbKey = 'c435430f2b8a8675d73ce0f2e9b18915';
+  // ImgBB API Key (Get a free one at https://api.imgbb.com/)
+  static const String _imgbbKey = 'YOUR_IMGBB_API_KEY_HERE';
 
   // ── Users ─────────────────────────────────────────────────────────────────
 
@@ -24,7 +25,12 @@ class FirestoreService {
       'photoURL': user.photoURL,
       'friendCode': user.uid.substring(0, 8).toUpperCase(),
       'lastLogin': FieldValue.serverTimestamp(),
+      'lastSeen': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  Future<void> updateLastSeen(String uid) async {
+    await _db.collection('users').doc(uid).update({'lastSeen': FieldValue.serverTimestamp()});
   }
 
   Future<void> updateFcmToken(String uid, String token) async {
@@ -39,7 +45,6 @@ class FirestoreService {
   }
 
   Future<String> updateProfilePhoto(String uid, File file) async {
-    // 1. Upload to ImgBB
     final request = http.MultipartRequest('POST', Uri.parse('https://api.imgbb.com/1/upload?key=$_imgbbKey'));
     request.files.add(await http.MultipartFile.fromPath('image', file.path));
 
@@ -52,7 +57,6 @@ class FirestoreService {
     final jsonResponse = jsonDecode(responseData);
     final url = jsonResponse['data']['url'] as String;
 
-    // 2. Update Firestore
     await _db.collection('users').doc(uid).update({'photoURL': url});
     return url;
   }
@@ -106,6 +110,20 @@ class FirestoreService {
       results.addAll(snap.docs.map(UserModel.fromFirestore));
     }
     return results;
+  }
+
+  Stream<List<UserModel>> friendsStatusStream(String uid) {
+    return _db.collection('users').doc(uid).snapshots().asyncExpand((userSnap) {
+      if (!userSnap.exists) return Stream.value([]);
+      final friends = List<String>.from((userSnap.data() as Map<String, dynamic>)['friends'] ?? []);
+      if (friends.isEmpty) return Stream.value([]);
+
+      return _db
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: friends.take(30).toList())
+          .snapshots()
+          .map((snap) => snap.docs.map(UserModel.fromFirestore).toList());
+    });
   }
 
   Future<UserModel?> findUserByCode(String code) async {

@@ -3,13 +3,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../app/theme.dart';
 import '../../services/firestore_service.dart';
 import '../../models/user_model.dart';
-import '../../widgets/gradient_button.dart';
 
 final userProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
   return ref.read(firestoreServiceProvider).userStream(uid);
+});
+
+final friendsStatusProvider = StreamProvider.family<List<UserModel>, String>((ref, uid) {
+  return ref.read(firestoreServiceProvider).friendsStatusStream(uid);
 });
 
 class FriendsScreen extends ConsumerStatefulWidget {
@@ -70,12 +74,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-
     if (uid == null) {
       return const Scaffold(body: Center(child: Text("User not logged in")));
     }
 
-    final userAsync = ref.watch(userProvider(uid));
+    final friendsAsync = ref.watch(friendsStatusProvider(uid));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -90,11 +93,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // Invite code
           _buildInviteCard(uid),
           const SizedBox(height: 24),
-
-          // Add by name
           const Text(
             'Add Friend by Invite code',
             style: TextStyle(
@@ -144,8 +144,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
           ],
           if (_searchResult != null) ...[const SizedBox(height: 12), _buildSearchResult(_searchResult!)],
           const SizedBox(height: 28),
-
-          // Friends list
           const Text(
             'Your Friends',
             style: TextStyle(
@@ -156,11 +154,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          userAsync.when(
-            loading: () => Center(child: const CircularProgressIndicator()),
+          friendsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Text('Error: $e'),
-            data: (user) {
-              if (user == null || user.friends.isEmpty) {
+            data: (friends) {
+              if (friends.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Center(
@@ -171,13 +169,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                   ),
                 );
               }
-              return FutureBuilder<List<UserModel>>(
-                future: ref.read(firestoreServiceProvider).getFriends(user.friends),
-                builder: (context, snap) {
-                  if (!snap.hasData) return Center(child: const CircularProgressIndicator());
-                  return Column(children: snap.data!.map((f) => _buildFriendTile(f, uid)).toList());
-                },
-              );
+              return Column(children: friends.map((f) => _buildFriendTile(f, uid)).toList());
             },
           ),
         ],
@@ -271,7 +263,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
           CircleAvatar(
             radius: 22,
             backgroundColor: AppColors.primary.withOpacity(0.2),
-            backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
+            backgroundImage: user.photoURL != null ? CachedNetworkImageProvider(user.photoURL!) : null,
             child: user.photoURL == null
                 ? Text(
                     user.displayName[0].toUpperCase(),
@@ -309,6 +301,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   }
 
   Widget _buildFriendTile(UserModel friend, String myUid) {
+    final statusText = friend.isOnline ? 'Active Now' : _formatLastSeen(friend.lastSeen);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -319,22 +313,49 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.primary.withOpacity(0.2),
-            backgroundImage: friend.photoURL != null ? NetworkImage(friend.photoURL!) : null,
-            child: friend.photoURL == null
-                ? Text(
-                    friend.displayName[0].toUpperCase(),
-                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
-                  )
-                : null,
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.primary.withOpacity(0.2),
+                backgroundImage: friend.photoURL != null ? CachedNetworkImageProvider(friend.photoURL!) : null,
+                child: friend.photoURL == null
+                    ? Text(
+                        friend.displayName[0].toUpperCase(),
+                        style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+                      )
+                    : null,
+              ),
+              if (friend.isOnline)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: AppColors.online,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.surface, width: 1.5),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              friend.displayName,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  friend.displayName,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                ),
+                Text(
+                  statusText,
+                  style: TextStyle(fontSize: 11, color: friend.isOnline ? AppColors.online : AppColors.textTertiary),
+                ),
+              ],
             ),
           ),
           GestureDetector(
@@ -360,14 +381,21 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                   ],
                 ),
               );
-              if (confirmed == true) {
-                await ref.read(firestoreServiceProvider).removeFriend(myUid, friend.uid);
-              }
+              if (confirmed == true) await ref.read(firestoreServiceProvider).removeFriend(myUid, friend.uid);
             },
             child: const Icon(Icons.more_horiz_rounded, color: AppColors.textTertiary),
           ),
         ],
       ),
     );
+  }
+
+  String _formatLastSeen(DateTime? lastSeen) {
+    if (lastSeen == null) return 'Offline';
+    final diff = DateTime.now().difference(lastSeen);
+    if (diff.inMinutes < 1) return 'Active just now';
+    if (diff.inMinutes < 60) return 'Active ${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return 'Active ${diff.inHours}h ago';
+    return 'Active ${diff.inDays}d ago';
   }
 }

@@ -1,13 +1,17 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:nowplaying/models/now_playing_model.dart';
 import 'package:nowplaying/app/theme.dart';
 import 'package:nowplaying/services/firestore_service.dart';
 import 'package:nowplaying/services/media_service.dart';
 import 'package:nowplaying/models/user_model.dart';
 import 'package:nowplaying/widgets/now_playing_card.dart';
+
+import '../friends/friends_screen.dart';
 
 final friendsFeedProvider = StreamProvider.family<List<NowPlayingModel>, String>((ref, uid) {
   return ref.read(firestoreServiceProvider).friendsFeedStream(uid);
@@ -17,7 +21,6 @@ final currentUserStreamProvider = StreamProvider.family<UserModel?, String>((ref
   return ref.read(firestoreServiceProvider).userStream(uid);
 });
 
-// Provider to check if notification access is granted
 final notificationAccessProvider = FutureProvider<bool>((ref) async {
   return await MediaService.hasAccess();
 });
@@ -46,16 +49,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Re-check permission status when user returns from settings
       ref.invalidate(notificationAccessProvider);
-      // Force reconnect to platform channel after permission change
       ref.read(mediaServiceProvider).reconnect();
     }
   }
 
   Future<void> _checkPermission() async {
     final hasAccess = await MediaService.hasAccess();
-
     if (!hasAccess && mounted) {
       await showDialog(
         context: context,
@@ -82,13 +82,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-
     if (uid == null) {
       return const Scaffold(body: Center(child: Text("Not logged in")));
     }
 
     final feedAsync = ref.watch(friendsFeedProvider(uid));
     final currentUserAsync = ref.watch(currentUserStreamProvider(uid));
+    final friendsStatusAsync = ref.watch(friendsStatusProvider(uid));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -96,26 +96,28 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
         slivers: [
           _buildAppBar(context),
           SliverToBoxAdapter(
-            child: currentUserAsync.when(
-              data: (user) => _buildMyStatusBar(context, ref, uid, user),
-              loading: () => const SizedBox.shrink(),
-              error: (_, _) => _buildMyStatusBar(context, ref, uid, null),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                currentUserAsync.when(
+                  data: (user) => _buildMyStatusBar(context, ref, uid, user),
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, _) => _buildMyStatusBar(context, ref, uid, null),
+                ),
+                _buildOnlineStatusSection(friendsStatusAsync),
+              ],
             ),
           ),
-          SliverToBoxAdapter(child: _buildSectionLabel('Friends')),
-
+          SliverToBoxAdapter(child: _buildSectionLabel('Friends Feed')),
           feedAsync.when(
             loading: () => SliverList(
               delegate: SliverChildBuilderDelegate((_, i) => const NowPlayingCardSkeleton(), childCount: 3),
             ),
-
             error: (e, _) => SliverToBoxAdapter(child: _buildError(e.toString())),
-
             data: (items) {
               if (items.isEmpty) {
                 return SliverToBoxAdapter(child: _buildEmptyState());
               }
-
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) => NowPlayingCard(
@@ -127,10 +129,98 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
               );
             },
           ),
-
           const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
       ),
+    );
+  }
+
+  Widget _buildOnlineStatusSection(AsyncValue<List<UserModel>> statusAsync) {
+    return statusAsync.when(
+      data: (friends) {
+        // Only show friends who are actually online
+        final onlineFriends = friends.where((f) => f.isOnline).toList();
+        if (onlineFriends.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionLabel('Online Now'),
+            SizedBox(
+              height: 90,
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                itemCount: onlineFriends.length,
+                itemBuilder: (context, index) {
+                  final friend = onlineFriends[index];
+                  return Container(
+                    width: 70,
+                    margin: const EdgeInsets.only(right: 12),
+                    child: Column(
+                      children: [
+                        Stack(
+                          children: [
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGradient),
+                              padding: const EdgeInsets.all(2),
+                              child: Container(
+                                decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.background),
+                                padding: const EdgeInsets.all(2),
+                                child: ClipOval(
+                                  child: friend.photoURL != null
+                                      ? CachedNetworkImage(imageUrl: friend.photoURL!, fit: BoxFit.cover)
+                                      : Center(
+                                          child: Text(
+                                            friend.displayName[0].toUpperCase(),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 2,
+                              bottom: 2,
+                              child: Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: AppColors.online,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: AppColors.background, width: 2),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          friend.displayName.split(' ')[0],
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
     );
   }
 
@@ -139,16 +229,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
       pinned: true,
       backgroundColor: AppColors.background,
       expandedHeight: 0,
-      title: Row(
-        children: [
-          ShaderMask(
-            shaderCallback: (bounds) => AppColors.brandGradient.createShader(bounds),
-            child: const Text(
-              'SoftSync',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white),
-            ),
-          ),
-        ],
+      title: ShaderMask(
+        shaderCallback: (bounds) => AppColors.brandGradient.createShader(bounds),
+        child: const Text(
+          'SoftSync',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white),
+        ),
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
@@ -159,7 +245,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
 
   Widget _buildMyStatusBar(BuildContext context, WidgetRef ref, String uid, UserModel? currentUser) {
     final accessAsync = ref.watch(notificationAccessProvider);
-
     return ref
         .watch(currentMediaProvider)
         .when(
@@ -168,17 +253,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
           data: (media) {
             return accessAsync.when(
               data: (hasAccess) {
-                // If we don't have access, show the "Permission Required" banner
-                if (!hasAccess) {
-                  return _buildPermissionRequiredBanner(context);
-                }
-
-                // If we have access but nothing is playing, show the "Not playing" banner
-                if (media == null || !media.isActive) {
-                  return _buildNotPlayingBanner(context);
-                }
-
-                // Otherwise, show the now playing card
+                if (!hasAccess) return _buildPermissionRequiredBanner(context);
+                if (media == null || !media.isActive) return _buildNotPlayingBanner(context);
                 final enrichedMedia = NowPlayingModel(
                   uid: media.uid,
                   title: media.title,
@@ -192,7 +268,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
                   userName: currentUser?.displayName ?? 'You',
                   userPhoto: currentUser?.photoURL,
                 );
-
                 return NowPlayingCard(model: enrichedMedia, isOwn: true, canReact: false);
               },
               loading: () => const SizedBox.shrink(),
@@ -287,14 +362,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
 
   Widget _buildSectionLabel(String label) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
       child: Text(
         label,
         style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
           color: AppColors.textTertiary,
-          letterSpacing: 0.8,
+          letterSpacing: 1.2,
         ),
       ),
     );

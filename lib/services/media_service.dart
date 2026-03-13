@@ -14,7 +14,7 @@ final mediaServiceProvider = Provider<MediaService>((ref) {
 });
 
 final currentMediaProvider = StreamProvider<NowPlayingModel?>((ref) {
-  return ref.read(mediaServiceProvider).mediaStream;
+  return ref.watch(mediaServiceProvider).mediaStream;
 });
 
 class MediaInfo {
@@ -53,19 +53,35 @@ class MediaService {
   final FirestoreService _firestoreService;
   final _controller = StreamController<NowPlayingModel?>.broadcast();
   StreamSubscription? _platformSub;
-
+  Timer? _presenceTimer;
   Timer? _debounce;
 
   MediaService(this._firestoreService) {
     _startListening();
+    _startPresenceTimer();
   }
 
   Stream<NowPlayingModel?> get mediaStream => _controller.stream;
 
-  /// Restarts the platform subscription
   void reconnect() {
     _platformSub?.cancel();
     _startListening();
+    _startPresenceTimer();
+  }
+
+  void _startPresenceTimer() {
+    _presenceTimer?.cancel();
+    _presenceTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      _updateLastSeen();
+    });
+    _updateLastSeen();
+  }
+
+  void _updateLastSeen() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _firestoreService.updateLastSeen(uid);
+    }
   }
 
   void _startListening() {
@@ -161,6 +177,7 @@ class MediaService {
 
   void dispose() {
     _platformSub?.cancel();
+    _presenceTimer?.cancel();
     _debounce?.cancel();
     _controller.close();
   }

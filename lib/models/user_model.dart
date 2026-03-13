@@ -8,6 +8,7 @@ class UserModel {
   final bool isSharingEnabled;
   final List<String> friends;
   final DateTime? createdAt;
+  final DateTime? lastSeen;
 
   const UserModel({
     required this.uid,
@@ -17,11 +18,17 @@ class UserModel {
     this.isSharingEnabled = true,
     this.friends = const [],
     this.createdAt,
+    this.lastSeen,
   });
+
+  bool get isOnline {
+    if (lastSeen == null) return false;
+    // Consider online if seen in the last 2 minutes
+    return DateTime.now().difference(lastSeen!).inMinutes < 2;
+  }
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    print(data);
     return UserModel(
       uid: doc.id,
       displayName: data['displayName'] ?? 'User',
@@ -30,6 +37,7 @@ class UserModel {
       isSharingEnabled: data['isSharingEnabled'] ?? true,
       friends: List<String>.from(data['friends'] ?? []),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      lastSeen: (data['lastSeen'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -41,6 +49,7 @@ class UserModel {
     'isSharingEnabled': isSharingEnabled,
     'friends': friends,
     'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+    'lastSeen': lastSeen != null ? Timestamp.fromDate(lastSeen!) : FieldValue.serverTimestamp(),
   };
 
   UserModel copyWith({
@@ -49,6 +58,7 @@ class UserModel {
     String? fcmToken,
     bool? isSharingEnabled,
     List<String>? friends,
+    DateTime? lastSeen,
   }) {
     return UserModel(
       uid: uid,
@@ -58,6 +68,7 @@ class UserModel {
       isSharingEnabled: isSharingEnabled ?? this.isSharingEnabled,
       friends: friends ?? this.friends,
       createdAt: createdAt,
+      lastSeen: lastSeen ?? this.lastSeen,
     );
   }
 }
