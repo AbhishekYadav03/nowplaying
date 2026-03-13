@@ -11,6 +11,9 @@ import androidx.annotation.RequiresApi
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import android.graphics.Bitmap
+import android.util.Base64
+import java.io.ByteArrayOutputStream
 
 class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
 
@@ -70,12 +73,20 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
             val componentName = ComponentName(context, MediaNotificationListenerService::class.java)
 
             sessionManager?.addOnActiveSessionsChangedListener({ controllers ->
-                controllers?.firstOrNull()?.let { attachController(it) }
+
+                val controller =
+                    controllers?.firstOrNull {
+                        it.playbackState?.state == PlaybackState.STATE_PLAYING
+                    } ?: controllers?.firstOrNull()
+
+                controller?.let { attachController(it) }
+
             }, componentName)
 
             // Immediately get current active session
-            sessionManager?.getActiveSessions(componentName)?.firstOrNull()?.let {
-                attachController(it)
+            val controllers = sessionManager?.getActiveSessions(componentName)
+            if (!controllers.isNullOrEmpty()) {
+                attachController(controllers[0])
             }
         } catch (e: Exception) {
             eventSink?.error("SESSION_ERROR", e.message, null)
@@ -89,7 +100,17 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
         controller.registerCallback(mediaControllerCallback)
 
         // Emit current state immediately
-        controller.metadata?.let { emitMediaInfo(controller) }
+        emitCurrentState(controller)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
+    private fun emitCurrentState(controller: MediaController) {
+        val meta = controller.metadata
+        val state = controller.playbackState
+
+        if (meta != null && state != null) {
+            emitMediaInfo(controller)
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
@@ -126,18 +147,24 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
             ?: meta.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
             ?: "Unknown"
 
-        val albumArt = meta.getString(android.media.MediaMetadata.METADATA_KEY_ART_URI)
-
         val packageName = controller.packageName ?: ""
 
         val state = controller.playbackState
         val isPlaying = state?.state == PlaybackState.STATE_PLAYING
 
+        // --- Album art handling ---
+        val bitmapArt =
+            meta.getBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART)
+                ?: meta.getBitmap(android.media.MediaMetadata.METADATA_KEY_ART)
+
+        val albumArt = bitmapToBase64(bitmapArt)
+            ?: meta.getString(android.media.MediaMetadata.METADATA_KEY_ART_URI)
+
         val source = when {
             packageName.contains("spotify") -> "Spotify"
             packageName.contains("youtube.music") -> "YouTube Music"
             packageName.contains("youtube") -> "YouTube"
-            packageName.contains("apple") || packageName.contains("music.apple") -> "Apple Music"
+            packageName.contains("apple") -> "Apple Music"
             else -> "Other"
         }
 
@@ -165,5 +192,14 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
         val intent = android.content.Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
+    }
+    private fun bitmapToBase64(bitmap: Bitmap?): String? {
+        if (bitmap == null) return null
+
+        val stream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+        val bytes = stream.toByteArray()
+
+        return Base64.encodeToString(bytes, Base64.NO_WRAP)
     }
 }

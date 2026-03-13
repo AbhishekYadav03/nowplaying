@@ -83,6 +83,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 return SliverToBoxAdapter(child: _buildEmptyState());
               }
               print(items.first.title);
+              print(items.first.packageName);
 
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
@@ -112,7 +113,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           ShaderMask(
             shaderCallback: (bounds) => AppColors.brandGradient.createShader(bounds),
             child: const Text(
-              'NowPlaying',
+              'SoftSync',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Colors.white),
             ),
           ),
@@ -219,7 +220,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   }
 
   Widget _buildError(String msg) {
-    print(msg);
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Text('Error: $msg', style: const TextStyle(color: AppColors.error)),

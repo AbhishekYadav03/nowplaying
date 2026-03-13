@@ -38,12 +38,12 @@ class NowPlayingModel {
   final String uid;
   final String title;
   final String artist;
+  final String? packageName;
   final String? albumArt;
   final MediaSource source;
   final DateTime? updatedAt;
   final bool isActive;
   final bool isPlaying;
-  // Joined from users collection
   final String? userName;
   final String? userPhoto;
 
@@ -58,6 +58,7 @@ class NowPlayingModel {
     this.isPlaying = true,
     this.userName,
     this.userPhoto,
+    this.packageName,
   });
 
   factory NowPlayingModel.fromFirestore(DocumentSnapshot doc, {String? userName, String? userPhoto}) {
@@ -67,6 +68,7 @@ class NowPlayingModel {
       title: data['title'] ?? 'Unknown',
       artist: data['artist'] ?? 'Unknown',
       albumArt: data['albumArt'],
+      packageName: data['packageName'],
       source: _parseSource(data['source']),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       isActive: data['isActive'] ?? false,
@@ -94,6 +96,7 @@ class NowPlayingModel {
     'title': title,
     'artist': artist,
     'albumArt': albumArt,
+    'packageName': packageName,
     'source': source.label,
     'updatedAt': FieldValue.serverTimestamp(),
     'isActive': isActive,

@@ -115,6 +115,40 @@ class ProfileScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              SizedBox(height: 16),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary.withOpacity(0.25), AppColors.primary.withOpacity(0.05)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(color: AppColors.primary.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 6)),
+                    ],
+                  ),
+                  child: ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: [AppColors.primary, Colors.pinkAccent, Colors.orangeAccent],
+                    ).createShader(bounds),
+                    child:
+                        Text(
+                              'Made with ❤️ by Abhi',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.4,
+                              ),
+                            )
+                            .animate()
+                            .fadeIn(duration: 600.ms)
+                            .shimmer(duration: 2200.ms, color: Colors.white.withOpacity(0.5)),
+                  ),
+                ),
+              ),
             ],
           );
         },

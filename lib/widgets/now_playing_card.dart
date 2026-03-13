@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:nowplaying/services/media_service.dart';
 import 'package:shimmer/shimmer.dart';
 import '../app/theme.dart';
 import '../models/now_playing_model.dart';
@@ -99,6 +102,7 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
   }
 
   Widget _buildMediaInfo() {
+    print(widget.model.albumArt);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -114,17 +118,7 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
                 BoxShadow(color: AppColors.primary.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 4)),
               ],
             ),
-            child: widget.model.albumArt != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: CachedNetworkImage(
-                      imageUrl: widget.model.albumArt!,
-                      fit: BoxFit.cover,
-                      placeholder: (_, _) => _albumArtPlaceholder(),
-                      errorWidget: (_, _, _) => _albumArtPlaceholder(),
-                    ),
-                  )
-                : _albumArtPlaceholder(),
+            child: _buildAlbumArt(),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -155,6 +149,39 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  bool _isBase64(String value) {
+    return value.length > 100 && !value.startsWith("http");
+  }
+
+  Widget _buildAlbumArt() {
+    final art = widget.model.albumArt;
+
+    if (art == null || art.isEmpty) {
+      return _albumArtPlaceholder();
+    }
+
+    // Detect base64 image
+    if (_isBase64(art)) {
+      Uint8List? bytes = MediaService.albumArtBytes(art);
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: bytes == null ? _albumArtPlaceholder() : Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true),
+      );
+    }
+
+    // Otherwise treat as URL
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: CachedNetworkImage(
+        imageUrl: art,
+        fit: BoxFit.cover,
+        placeholder: (_, _) => _albumArtPlaceholder(),
+        errorWidget: (_, _, _) => _albumArtPlaceholder(),
       ),
     );
   }

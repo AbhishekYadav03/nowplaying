@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firestore_service.dart';
 import '../models/now_playing_model.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 final mediaServiceProvider = Provider<MediaService>((ref) {
   final service = MediaService(ref.read(firestoreServiceProvider));
@@ -19,6 +21,7 @@ class MediaInfo {
   final String artist;
   final String? albumArt;
   final String source;
+  final String? packageName;
   final bool isPlaying;
 
   const MediaInfo({
@@ -27,6 +30,7 @@ class MediaInfo {
     this.albumArt,
     required this.source,
     this.isPlaying = false,
+    this.packageName,
   });
 
   factory MediaInfo.fromMap(Map<dynamic, dynamic> map) {
@@ -34,6 +38,7 @@ class MediaInfo {
       title: map['title'] ?? 'Unknown',
       artist: map['artist'] ?? 'Unknown',
       albumArt: map['albumArt'],
+      packageName: map['packageName'],
       source: map['source'] ?? 'Other',
       isPlaying: map['isPlaying'] ?? false,
     );
@@ -90,6 +95,7 @@ class MediaService {
       source: _parseSource(info.source),
       isActive: true,
       isPlaying: info.isPlaying,
+      packageName: info.packageName,
     );
 
     _controller.add(model);
@@ -149,6 +155,12 @@ class MediaService {
 
   static Future<void> openSettings() async {
     await _methodChannel.invokeMethod('openNotificationSettings');
+  }
+
+  static Uint8List? albumArtBytes(String? art) {
+    if (art == null) return null;
+    final cleaned = art.replaceAll(RegExp(r'\s+'), '');
+    return base64Decode(cleaned);
   }
 
   void dispose() {
