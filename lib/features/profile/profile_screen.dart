@@ -19,7 +19,6 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    print(uid);
 
     final userAsync = ref.watch(userProvider(uid));
     return Scaffold(
@@ -92,11 +91,10 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               // Manual track entry
-              _buildSection(
-                title: 'MANUAL ENTRY',
-                child: _ManualTrackEntry(ref: ref),
-              ),
-
+              // _buildSection(
+              //   title: 'MANUAL ENTRY',
+              //   child: _ManualTrackEntry(ref: ref),
+              // ),
               const SizedBox(height: 16),
 
               // Settings

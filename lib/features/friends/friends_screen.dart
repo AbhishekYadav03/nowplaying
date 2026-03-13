@@ -27,18 +27,18 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   bool _addLoading = false;
 
   Future<void> _search() async {
-    final name = _searchCtrl.text.trim();
-    if (name.isEmpty) return;
+    final code = _searchCtrl.text.trim();
+    if (code.isEmpty) return;
     setState(() {
       _searching = true;
       _searchResult = null;
       _searchError = null;
     });
     try {
-      final user = await ref.read(firestoreServiceProvider).findUserByDisplayName(name);
+      final user = await ref.read(firestoreServiceProvider).findUserByCode(code);
       setState(() {
         _searchResult = user;
-        if (user == null) _searchError = 'No user found with that name.';
+        if (user == null) _searchError = 'No user found with that code.';
       });
     } catch (e) {
       setState(() => _searchError = e.toString());
@@ -112,7 +112,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                   controller: _searchCtrl,
                   style: const TextStyle(color: AppColors.textPrimary),
                   decoration: const InputDecoration(
-                    hintText: 'Search display name...',
+                    hintText: 'Enter invite code...',
                     prefixIcon: Icon(Icons.search_rounded, color: AppColors.textTertiary, size: 20),
                   ),
                   onSubmitted: (_) => _search(),
@@ -157,7 +157,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
           ),
           const SizedBox(height: 10),
           userAsync.when(
-            loading: () => const CircularProgressIndicator(),
+            loading: () => Center(child: const CircularProgressIndicator()),
             error: (e, _) => Text('Error: $e'),
             data: (user) {
               if (user == null || user.friends.isEmpty) {
@@ -350,11 +350,11 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context, false),
+                      onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
                       child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.pop(context, true),
+                      onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
                       child: const Text('Remove', style: TextStyle(color: AppColors.error)),
                     ),
                   ],

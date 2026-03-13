@@ -82,6 +82,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               if (items.isEmpty) {
                 return SliverToBoxAdapter(child: _buildEmptyState());
               }
+              print(items.first.title);
 
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
@@ -218,6 +219,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   }
 
   Widget _buildError(String msg) {
+    print(msg);
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Text('Error: $msg', style: const TextStyle(color: AppColors.error)),

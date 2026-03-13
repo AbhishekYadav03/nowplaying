@@ -19,8 +19,15 @@ class MediaInfo {
   final String artist;
   final String? albumArt;
   final String source;
+  final bool isPlaying;
 
-  const MediaInfo({required this.title, required this.artist, this.albumArt, required this.source});
+  const MediaInfo({
+    required this.title,
+    required this.artist,
+    this.albumArt,
+    required this.source,
+    this.isPlaying = false,
+  });
 
   factory MediaInfo.fromMap(Map<dynamic, dynamic> map) {
     return MediaInfo(
@@ -28,6 +35,7 @@ class MediaInfo {
       artist: map['artist'] ?? 'Unknown',
       albumArt: map['albumArt'],
       source: map['source'] ?? 'Other',
+      isPlaying: map['isPlaying'] ?? false,
     );
   }
 }
@@ -81,6 +89,7 @@ class MediaService {
       albumArt: info.albumArt,
       source: _parseSource(info.source),
       isActive: true,
+      isPlaying: info.isPlaying,
     );
 
     _controller.add(model);
@@ -124,6 +133,8 @@ class MediaService {
         return MediaSource.spotify;
       case 'youtube':
         return MediaSource.youtube;
+      case 'youtube music':
+        return MediaSource.youtubeMusic;
       case 'apple music':
         return MediaSource.appleMusic;
       default:

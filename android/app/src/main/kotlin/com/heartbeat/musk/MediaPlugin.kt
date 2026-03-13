@@ -99,9 +99,20 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
         }
 
         override fun onPlaybackStateChanged(state: PlaybackState?) {
-            if (state?.state == PlaybackState.STATE_STOPPED ||
-                state?.state == PlaybackState.STATE_NONE) {
-                eventSink?.success(null)
+            val controller = activeController ?: return
+            val playbackState = state?.state ?: return
+
+            when (playbackState) {
+                PlaybackState.STATE_STOPPED,
+                PlaybackState.STATE_NONE -> {
+                    eventSink?.success(null)
+                }
+
+                PlaybackState.STATE_PAUSED,
+                PlaybackState.STATE_PLAYING,
+                PlaybackState.STATE_BUFFERING -> {
+                    emitMediaInfo(controller)
+                }
             }
         }
     }
@@ -109,26 +120,36 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     private fun emitMediaInfo(controller: MediaController) {
         val meta = controller.metadata ?: return
-        val title   = meta.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: return
-        val artist  = meta.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST)
+
+        val title = meta.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: return
+        val artist = meta.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST)
             ?: meta.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
             ?: "Unknown"
+
         val albumArt = meta.getString(android.media.MediaMetadata.METADATA_KEY_ART_URI)
+
         val packageName = controller.packageName ?: ""
 
+        val state = controller.playbackState
+        val isPlaying = state?.state == PlaybackState.STATE_PLAYING
+
         val source = when {
-            packageName.contains("spotify")     -> "Spotify"
-            packageName.contains("youtube")     -> "YouTube"
-            packageName.contains("music.apple") -> "Apple Music"
+            packageName.contains("spotify") -> "Spotify"
+            packageName.contains("youtube.music") -> "YouTube Music"
+            packageName.contains("youtube") -> "YouTube"
+            packageName.contains("apple") || packageName.contains("music.apple") -> "Apple Music"
             else -> "Other"
         }
 
         val payload = mapOf(
-            "title"    to title,
-            "artist"   to artist,
+            "title" to title,
+            "artist" to artist,
             "albumArt" to albumArt,
-            "source"   to source
+            "source" to source,
+            "packageName" to packageName,
+            "isPlaying" to isPlaying
         )
+
         eventSink?.success(payload)
     }
 

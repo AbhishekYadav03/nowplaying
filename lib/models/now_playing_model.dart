@@ -1,23 +1,35 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum MediaSource { spotify, youtube, appleMusic, other }
+enum MediaSource { spotify, youtube, youtubeMusic, appleMusic, other }
 
 extension MediaSourceExt on MediaSource {
   String get label {
     switch (this) {
-      case MediaSource.spotify:     return 'Spotify';
-      case MediaSource.youtube:     return 'YouTube';
-      case MediaSource.appleMusic:  return 'Apple Music';
-      case MediaSource.other:       return 'Music';
+      case MediaSource.spotify:
+        return 'Spotify';
+      case MediaSource.youtube:
+        return 'YouTube';
+      case MediaSource.appleMusic:
+        return 'Apple Music';
+      case MediaSource.other:
+        return 'Music';
+      case MediaSource.youtubeMusic:
+        return 'YouTube Music';
     }
   }
 
   String get iconAsset {
     switch (this) {
-      case MediaSource.spotify:     return 'assets/images/spotify.png';
-      case MediaSource.youtube:     return 'assets/images/youtube.png';
-      case MediaSource.appleMusic:  return 'assets/images/apple_music.png';
-      case MediaSource.other:       return 'assets/images/music.png';
+      case MediaSource.spotify:
+        return 'assets/images/spotify.png';
+      case MediaSource.youtube:
+        return 'assets/images/youtube.png';
+      case MediaSource.youtubeMusic:
+        return 'assets/images/youtube_music.png';
+      case MediaSource.appleMusic:
+        return 'assets/images/apple_music.png';
+      case MediaSource.other:
+        return 'assets/images/music.png';
     }
   }
 }
@@ -30,7 +42,7 @@ class NowPlayingModel {
   final MediaSource source;
   final DateTime? updatedAt;
   final bool isActive;
-
+  final bool isPlaying;
   // Joined from users collection
   final String? userName;
   final String? userPhoto;
@@ -43,6 +55,7 @@ class NowPlayingModel {
     this.source = MediaSource.other,
     this.updatedAt,
     this.isActive = true,
+    this.isPlaying = true,
     this.userName,
     this.userPhoto,
   });
@@ -57,6 +70,7 @@ class NowPlayingModel {
       source: _parseSource(data['source']),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       isActive: data['isActive'] ?? false,
+      isPlaying: data['isPlaying'] ?? false,
       userName: userName,
       userPhoto: userPhoto,
     );
@@ -64,10 +78,14 @@ class NowPlayingModel {
 
   static MediaSource _parseSource(String? s) {
     switch (s?.toLowerCase()) {
-      case 'spotify':     return MediaSource.spotify;
-      case 'youtube':     return MediaSource.youtube;
-      case 'apple music': return MediaSource.appleMusic;
-      default:            return MediaSource.other;
+      case 'spotify':
+        return MediaSource.spotify;
+      case 'youtube':
+        return MediaSource.youtube;
+      case 'apple music':
+        return MediaSource.appleMusic;
+      default:
+        return MediaSource.other;
     }
   }
 
@@ -79,6 +97,7 @@ class NowPlayingModel {
     'source': source.label,
     'updatedAt': FieldValue.serverTimestamp(),
     'isActive': isActive,
+    'isPlaying': isPlaying,
   };
 }
 

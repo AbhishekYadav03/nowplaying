@@ -56,11 +56,6 @@ class AuthService {
   }
 
   Future<void> _syncUserToFirestore(User user, {String? displayName}) async {
-    final model = UserModel(
-      uid: user.uid,
-      displayName: displayName ?? user.displayName ?? 'User ${user.uid.substring(0, 4)}',
-      photoURL: user.photoURL,
-    );
-    await _firestoreService.upsertUser(model);
+    await _firestoreService.upsertUser(user, displayName: displayName);
   }
 }

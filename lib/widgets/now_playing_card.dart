@@ -11,13 +11,7 @@ class NowPlayingCard extends StatefulWidget {
   final Function(String emoji)? onReact;
   final bool isOwn;
 
-  const NowPlayingCard({
-    super.key,
-    required this.model,
-    this.canReact = true,
-    this.onReact,
-    this.isOwn = false,
-  });
+  const NowPlayingCard({super.key, required this.model, this.canReact = true, this.onReact, this.isOwn = false});
 
   @override
   State<NowPlayingCard> createState() => _NowPlayingCardState();
@@ -37,21 +31,11 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.border, width: 0.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(),
-          _buildMediaInfo(),
-          if (!widget.isOwn && widget.canReact) _buildReactionBar(),
-        ],
+        children: [_buildHeader(), _buildMediaInfo(), if (!widget.isOwn && widget.canReact) _buildReactionBar()],
       ),
     ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.05, end: 0);
   }
@@ -65,25 +49,15 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: AppColors.brandGradient,
-            ),
+            decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGradient),
             child: widget.model.userPhoto != null
                 ? ClipOval(
-                    child: CachedNetworkImage(
-                      imageUrl: widget.model.userPhoto!,
-                      fit: BoxFit.cover,
-                    ),
+                    child: CachedNetworkImage(imageUrl: widget.model.userPhoto!, fit: BoxFit.cover),
                   )
                 : Center(
                     child: Text(
                       (widget.model.userName ?? 'U')[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
                     ),
                   ),
           ),
@@ -94,21 +68,14 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
               children: [
                 Text(
                   widget.isOwn ? 'You' : (widget.model.userName ?? 'Friend'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    color: AppColors.textPrimary,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.textPrimary),
                 ),
                 Row(
                   children: [
                     Container(
                       width: 7,
                       height: 7,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.online,
-                      ),
+                      decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.online),
                     ),
                     const SizedBox(width: 5),
                     Text(
@@ -144,11 +111,7 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
               borderRadius: BorderRadius.circular(12),
               color: AppColors.surfaceHigh,
               boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.2),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
+                BoxShadow(color: AppColors.primary.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 4)),
               ],
             ),
             child: widget.model.albumArt != null
@@ -157,8 +120,8 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
                     child: CachedNetworkImage(
                       imageUrl: widget.model.albumArt!,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => _albumArtPlaceholder(),
-                      errorWidget: (_, __, ___) => _albumArtPlaceholder(),
+                      placeholder: (_, _) => _albumArtPlaceholder(),
+                      errorWidget: (_, _, _) => _albumArtPlaceholder(),
                     ),
                   )
                 : _albumArtPlaceholder(),
@@ -182,16 +145,12 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
                 const SizedBox(height: 4),
                 Text(
                   widget.model.artist,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
-                _AudioWave(),
+                AudioWave(isPlaying: widget.model.isPlaying),
               ],
             ),
           ),
@@ -226,22 +185,14 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
               const SizedBox(width: 6),
               Text(
                 'Reacted',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
               ),
             ] else ...[
               const Icon(Icons.add_reaction_outlined, color: AppColors.textTertiary, size: 18),
               const SizedBox(width: 6),
               const Text(
                 'React',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textTertiary,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 13, color: AppColors.textTertiary, fontWeight: FontWeight.w500),
               ),
             ],
           ],
@@ -256,23 +207,22 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          ..._emojis.map((emoji) => GestureDetector(
-            onTap: () {
-              setState(() {
-                _sentEmoji = emoji;
-                _showReactions = false;
-              });
-              widget.onReact?.call(emoji);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceHigh,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(emoji, style: const TextStyle(fontSize: 20)),
-            ).animate().scale(duration: 200.ms, curve: Curves.elasticOut),
-          )),
+          ..._emojis.map(
+            (emoji) => GestureDetector(
+              onTap: () {
+                setState(() {
+                  _sentEmoji = emoji;
+                  _showReactions = false;
+                });
+                widget.onReact?.call(emoji);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: AppColors.surfaceHigh, borderRadius: BorderRadius.circular(10)),
+                child: Text(emoji, style: const TextStyle(fontSize: 20)),
+              ).animate().scale(duration: 200.ms, curve: Curves.elasticOut),
+            ),
+          ),
           GestureDetector(
             onTap: () => setState(() => _showReactions = false),
             child: Container(
@@ -321,31 +271,58 @@ class _SourceBadge extends StatelessWidget {
   }
 
   Color get _color => switch (source) {
-    MediaSource.spotify    => const Color(0xFF1DB954),
-    MediaSource.youtube    => const Color(0xFFFF0000),
+    MediaSource.spotify => const Color(0xFF1DB954),
+    MediaSource.youtube => const Color(0xFFFF0000),
     MediaSource.appleMusic => const Color(0xFFFC3C44),
-    MediaSource.other      => AppColors.primary,
+    MediaSource.other => AppColors.primary,
+    MediaSource.youtubeMusic => const Color(0xFFFF0000),
   };
 }
 
-class _AudioWave extends StatefulWidget {
+class AudioWave extends StatefulWidget {
+  final bool isPlaying;
+
+  const AudioWave({super.key, required this.isPlaying});
+
   @override
-  State<_AudioWave> createState() => _AudioWaveState();
+  State<AudioWave> createState() => _AudioWaveState();
 }
 
-class _AudioWaveState extends State<_AudioWave> with TickerProviderStateMixin {
+class _AudioWaveState extends State<AudioWave> with TickerProviderStateMixin {
   late final List<AnimationController> _controllers;
 
   @override
   void initState() {
     super.initState();
     _controllers = List.generate(4, (i) {
-      final c = AnimationController(
+      return AnimationController(
         vsync: this,
-        duration: Duration(milliseconds: 400 + i * 100),
-      )..repeat(reverse: true);
-      return c;
+        duration: Duration(milliseconds: 400 + i * 120),
+      );
     });
+    _updateAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant AudioWave oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.isPlaying != widget.isPlaying) {
+      _updateAnimation();
+    }
+  }
+
+  void _updateAnimation() {
+    if (widget.isPlaying) {
+      for (final c in _controllers) {
+        c.repeat(reverse: true);
+      }
+    } else {
+      for (final c in _controllers) {
+        c.stop();
+        c.value = 0.2;
+      }
+    }
   }
 
   @override
@@ -361,25 +338,23 @@ class _AudioWaveState extends State<_AudioWave> with TickerProviderStateMixin {
     return SizedBox(
       height: 16,
       child: Row(
-        children: List.generate(4, (i) {
+        children: List.generate(_controllers.length, (i) {
           return AnimatedBuilder(
             animation: _controllers[i],
-            builder: (_, __) => Container(
-              width: 3,
-              height: 4 + _controllers[i].value * 12,
-              margin: const EdgeInsets.only(right: 3),
-              decoration: BoxDecoration(
-                gradient: AppColors.brandGradient,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            builder: (_, _) {
+              return Container(
+                width: 3,
+                height: 4 + _controllers[i].value * 12,
+                margin: const EdgeInsets.only(right: 3),
+                decoration: BoxDecoration(gradient: AppColors.brandGradient, borderRadius: BorderRadius.circular(2)),
+              );
+            },
           );
         }),
       ),
     );
   }
 }
-
 // ── Shimmer loading card ──────────────────────────────────────────────────────
 
 class NowPlayingCardSkeleton extends StatelessWidget {
@@ -401,25 +376,27 @@ class NowPlayingCardSkeleton extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              _box(36, 36, radius: 18),
-              const SizedBox(width: 10),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _box(100, 12),
-                const SizedBox(height: 5),
-                _box(70, 10),
-              ]),
-            ]),
+            Row(
+              children: [
+                _box(36, 36, radius: 18),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [_box(100, 12), const SizedBox(height: 5), _box(70, 10)],
+                ),
+              ],
+            ),
             const SizedBox(height: 14),
-            Row(children: [
-              _box(72, 72, radius: 12),
-              const SizedBox(width: 14),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _box(150, 14),
-                const SizedBox(height: 6),
-                _box(100, 12),
-              ]),
-            ]),
+            Row(
+              children: [
+                _box(72, 72, radius: 12),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [_box(150, 14), const SizedBox(height: 6), _box(100, 12)],
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -429,9 +406,6 @@ class NowPlayingCardSkeleton extends StatelessWidget {
   Widget _box(double w, double h, {double radius = 6}) => Container(
     width: w,
     height: h,
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(radius),
-    ),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(radius)),
   );
 }

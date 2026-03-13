@@ -13,8 +13,13 @@ class FirestoreService {
 
   // ── Users ─────────────────────────────────────────────────────────────────
 
-  Future<void> upsertUser(UserModel user) async {
-    await _db.collection('users').doc(user.uid).set(user.toMap(), SetOptions(merge: true));
+  Future<void> upsertUser(User user, {String? displayName}) async {
+    await _db.collection('users').doc(user.uid).set({
+      'displayName': displayName ?? user.displayName ?? 'User ${user.uid.substring(0, 4).toUpperCase()}',
+      'photoURL': user.photoURL,
+      'friendCode': user.uid.substring(0, 8).toUpperCase(),
+      'lastLogin': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<void> updateFcmToken(String uid, String token) async {
@@ -31,7 +36,6 @@ class FirestoreService {
   Stream<UserModel?> userStream(String uid) {
     return _db.collection('users').doc(uid).snapshots().map((snap) {
       if (!snap.exists) return null;
-      print(snap);
       return UserModel.fromFirestore(snap);
     });
   }
@@ -80,8 +84,8 @@ class FirestoreService {
     return results;
   }
 
-  Future<UserModel?> findUserByDisplayName(String name) async {
-    final snap = await _db.collection('users').where('displayName', isEqualTo: name).limit(1).get();
+  Future<UserModel?> findUserByCode(String code) async {
+    final snap = await _db.collection('users').where('friendCode', isEqualTo: code).limit(1).get();
     if (snap.docs.isEmpty) return null;
     return UserModel.fromFirestore(snap.docs.first);
   }
@@ -114,7 +118,6 @@ class FirestoreService {
       final friends = List<String>.from((userSnap.data() as Map<String, dynamic>)['friends'] ?? []);
       if (friends.isEmpty) return Stream.value([]);
 
-      // Firestore whereIn supports max 30 items
       final batch = friends.take(30).toList();
       return _db
           .collection('nowplaying')
@@ -124,6 +127,7 @@ class FirestoreService {
           .snapshots()
           .asyncMap((snap) async {
             final uids = snap.docs.map((d) => d.id).toList();
+            if (uids.isEmpty) return [];
             final userDocs = await _db.collection('users').where(FieldPath.documentId, whereIn: uids).get();
             final userMap = {for (final u in userDocs.docs) u.id: u.data()};
             return snap.docs.map((d) {
