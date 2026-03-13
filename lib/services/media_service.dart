@@ -12,6 +12,7 @@ final mediaServiceProvider = Provider<MediaService>((ref) {
   ref.onDispose(service.dispose);
   return service;
 });
+
 final currentMediaProvider = StreamProvider<NowPlayingModel?>((ref) {
   return ref.read(mediaServiceProvider).mediaStream;
 });
@@ -53,7 +54,6 @@ class MediaService {
   final _controller = StreamController<NowPlayingModel?>.broadcast();
   StreamSubscription? _platformSub;
 
-  // Debounce timer to avoid hammering Firestore
   Timer? _debounce;
 
   MediaService(this._firestoreService) {
@@ -61,6 +61,12 @@ class MediaService {
   }
 
   Stream<NowPlayingModel?> get mediaStream => _controller.stream;
+
+  /// Restarts the platform subscription
+  void reconnect() {
+    _platformSub?.cancel();
+    _startListening();
+  }
 
   void _startListening() {
     try {
@@ -74,12 +80,11 @@ class MediaService {
           _handleMediaChange(info);
         },
         onError: (e) {
-          // Platform channel not set up yet (e.g. running in simulator without plugin)
           _controller.add(null);
         },
       );
     } catch (_) {
-      // Silently fail on platforms where channel isn't registered
+      _controller.add(null);
     }
   }
 
@@ -96,11 +101,11 @@ class MediaService {
       isActive: true,
       isPlaying: info.isPlaying,
       packageName: info.packageName,
+      updatedAt: DateTime.now(),
     );
 
     _controller.add(model);
 
-    // Debounce Firestore writes by 5 seconds to reduce writes/cost
     _debounce?.cancel();
     _debounce = Timer(const Duration(seconds: 5), () async {
       try {
@@ -115,15 +120,6 @@ class MediaService {
     if (uid != null) {
       _firestoreService.clearNowPlaying(uid);
     }
-  }
-
-  /// Manually set now playing (fallback for iOS)
-  Future<void> setManualNowPlaying({required String title, required String artist, required MediaSource source}) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    final model = NowPlayingModel(uid: uid, title: title, artist: artist, source: source, isActive: true);
-    _controller.add(model);
-    await _firestoreService.updateNowPlaying(model);
   }
 
   Future<void> stopSharing() async {

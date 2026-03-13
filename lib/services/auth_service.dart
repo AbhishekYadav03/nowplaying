@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'firestore_service.dart';
-import '../models/user_model.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(ref.read(firestoreServiceProvider));

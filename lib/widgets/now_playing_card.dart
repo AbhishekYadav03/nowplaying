@@ -1,13 +1,11 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:nowplaying/services/media_service.dart';
 import 'package:shimmer/shimmer.dart';
-import '../app/theme.dart';
-import '../models/now_playing_model.dart';
+import 'package:nowplaying/app/theme.dart';
+import 'package:nowplaying/models/now_playing_model.dart';
 
 class NowPlayingCard extends StatefulWidget {
   final NowPlayingModel model;
@@ -26,6 +24,17 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
   String? _sentEmoji;
 
   static const _emojis = ['🔥', '❤️', '😮', '🎉', '👏', '💜'];
+
+  String get _statusText {
+    if (widget.model.isPlaying) return 'listening now';
+    if (widget.model.updatedAt == null) return 'active';
+
+    final diff = DateTime.now().difference(widget.model.updatedAt!);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +65,16 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
             decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGradient),
             child: widget.model.userPhoto != null
                 ? ClipOval(
-                    child: CachedNetworkImage(imageUrl: widget.model.userPhoto!, fit: BoxFit.cover),
+                    child: CachedNetworkImage(
+                      imageUrl: widget.model.userPhoto!,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, error, stackTrace) => Center(
+                        child: Text(
+                          (widget.model.userName ?? 'U')[0].toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                        ),
+                      ),
+                    ),
                   )
                 : Center(
                     child: Text(
@@ -71,7 +89,7 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.isOwn ? 'You' : (widget.model.userName ?? 'Friend'),
+                  (widget.model.userName ?? 'Friend'),
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.textPrimary),
                 ),
                 Row(
@@ -79,14 +97,17 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
                     Container(
                       width: 7,
                       height: 7,
-                      decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.online),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: widget.model.isPlaying ? AppColors.online : AppColors.textTertiary,
+                      ),
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      'listening now',
+                      _statusText,
                       style: TextStyle(
                         fontSize: 11,
-                        color: AppColors.online.withOpacity(0.9),
+                        color: widget.model.isPlaying ? AppColors.online.withOpacity(0.9) : AppColors.textTertiary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -219,9 +240,9 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
             if (_sentEmoji != null) ...[
               Text(_sentEmoji!, style: const TextStyle(fontSize: 16)),
               const SizedBox(width: 6),
-              Text(
+              const Text(
                 'Reacted',
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
               ),
             ] else ...[
               const Icon(Icons.add_reaction_outlined, color: AppColors.textTertiary, size: 18),

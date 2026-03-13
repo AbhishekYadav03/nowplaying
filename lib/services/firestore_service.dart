@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../models/now_playing_model.dart';
 
@@ -10,6 +13,8 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
 
 class FirestoreService {
   final _db = FirebaseFirestore.instance;
+
+  static const String _imgbbKey = 'c435430f2b8a8675d73ce0f2e9b18915';
 
   // ── Users ─────────────────────────────────────────────────────────────────
 
@@ -31,6 +36,25 @@ class FirestoreService {
     if (!enabled) {
       await _db.collection('nowplaying').doc(uid).set({'isActive': false}, SetOptions(merge: true));
     }
+  }
+
+  Future<String> updateProfilePhoto(String uid, File file) async {
+    // 1. Upload to ImgBB
+    final request = http.MultipartRequest('POST', Uri.parse('https://api.imgbb.com/1/upload?key=$_imgbbKey'));
+    request.files.add(await http.MultipartFile.fromPath('image', file.path));
+
+    final response = await request.send();
+    if (response.statusCode != 200) {
+      throw Exception('Failed to upload image to ImgBB');
+    }
+
+    final responseData = await response.stream.bytesToString();
+    final jsonResponse = jsonDecode(responseData);
+    final url = jsonResponse['data']['url'] as String;
+
+    // 2. Update Firestore
+    await _db.collection('users').doc(uid).update({'photoURL': url});
+    return url;
   }
 
   Stream<UserModel?> userStream(String uid) {
@@ -103,7 +127,6 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
-  /// Streams the authenticated user's own now-playing doc
   Stream<NowPlayingModel?> myNowPlayingStream(String uid) {
     return _db.collection('nowplaying').doc(uid).snapshots().map((snap) {
       if (!snap.exists) return null;
@@ -111,7 +134,6 @@ class FirestoreService {
     });
   }
 
-  /// Streams friends' now-playing docs with user info joined
   Stream<List<NowPlayingModel>> friendsFeedStream(String uid) {
     return _db.collection('users').doc(uid).snapshots().asyncExpand((userSnap) {
       if (!userSnap.exists) return Stream.value([]);

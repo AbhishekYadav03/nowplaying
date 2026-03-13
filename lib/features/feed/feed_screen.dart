@@ -6,11 +6,20 @@ import 'package:nowplaying/models/now_playing_model.dart';
 import 'package:nowplaying/app/theme.dart';
 import 'package:nowplaying/services/firestore_service.dart';
 import 'package:nowplaying/services/media_service.dart';
-
+import 'package:nowplaying/models/user_model.dart';
 import 'package:nowplaying/widgets/now_playing_card.dart';
 
 final friendsFeedProvider = StreamProvider.family<List<NowPlayingModel>, String>((ref, uid) {
   return ref.read(firestoreServiceProvider).friendsFeedStream(uid);
+});
+
+final currentUserStreamProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
+  return ref.read(firestoreServiceProvider).userStream(uid);
+});
+
+// Provider to check if notification access is granted
+final notificationAccessProvider = FutureProvider<bool>((ref) async {
+  return await MediaService.hasAccess();
 });
 
 class FeedScreen extends ConsumerStatefulWidget {
@@ -20,11 +29,28 @@ class FeedScreen extends ConsumerStatefulWidget {
   ConsumerState<FeedScreen> createState() => _FeedScreenState();
 }
 
-class _FeedScreenState extends ConsumerState<FeedScreen> {
+class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkPermission();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Re-check permission status when user returns from settings
+      ref.invalidate(notificationAccessProvider);
+      // Force reconnect to platform channel after permission change
+      ref.read(mediaServiceProvider).reconnect();
+    }
   }
 
   Future<void> _checkPermission() async {
@@ -62,13 +88,20 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     }
 
     final feedAsync = ref.watch(friendsFeedProvider(uid));
+    final currentUserAsync = ref.watch(currentUserStreamProvider(uid));
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
           _buildAppBar(context),
-          SliverToBoxAdapter(child: _buildMyStatusBar(context, ref, uid)),
+          SliverToBoxAdapter(
+            child: currentUserAsync.when(
+              data: (user) => _buildMyStatusBar(context, ref, uid, user),
+              loading: () => const SizedBox.shrink(),
+              error: (_, _) => _buildMyStatusBar(context, ref, uid, null),
+            ),
+          ),
           SliverToBoxAdapter(child: _buildSectionLabel('Friends')),
 
           feedAsync.when(
@@ -82,8 +115,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               if (items.isEmpty) {
                 return SliverToBoxAdapter(child: _buildEmptyState());
               }
-              print(items.first.title);
-              print(items.first.packageName);
 
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
@@ -126,19 +157,94 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
-  Widget _buildMyStatusBar(BuildContext context, WidgetRef ref, String uid) {
+  Widget _buildMyStatusBar(BuildContext context, WidgetRef ref, String uid, UserModel? currentUser) {
+    final accessAsync = ref.watch(notificationAccessProvider);
+
     return ref
         .watch(currentMediaProvider)
         .when(
           loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
           data: (media) {
-            if (media == null) {
-              return _buildNotPlayingBanner(context);
-            }
-            return NowPlayingCard(model: media, isOwn: true, canReact: false);
+            return accessAsync.when(
+              data: (hasAccess) {
+                // If we don't have access, show the "Permission Required" banner
+                if (!hasAccess) {
+                  return _buildPermissionRequiredBanner(context);
+                }
+
+                // If we have access but nothing is playing, show the "Not playing" banner
+                if (media == null || !media.isActive) {
+                  return _buildNotPlayingBanner(context);
+                }
+
+                // Otherwise, show the now playing card
+                final enrichedMedia = NowPlayingModel(
+                  uid: media.uid,
+                  title: media.title,
+                  artist: media.artist,
+                  albumArt: media.albumArt,
+                  source: media.source,
+                  updatedAt: media.updatedAt,
+                  isActive: media.isActive,
+                  isPlaying: media.isPlaying,
+                  packageName: media.packageName,
+                  userName: currentUser?.displayName ?? 'You',
+                  userPhoto: currentUser?.photoURL,
+                );
+
+                return NowPlayingCard(model: enrichedMedia, isOwn: true, canReact: false);
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, _) => _buildPermissionRequiredBanner(context),
+            );
           },
         );
+  }
+
+  Widget _buildPermissionRequiredBanner(BuildContext context) {
+    return GestureDetector(
+      onTap: () => MediaService.openSettings(),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.error.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.error.withOpacity(0.2), width: 0.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.notifications_paused_rounded, color: AppColors.error, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Detection Disabled',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                  ),
+                  Text(
+                    'Tap to enable notification access',
+                    style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary),
+          ],
+        ),
+      ).animate().fadeIn(duration: 300.ms),
+    );
   }
 
   Widget _buildNotPlayingBanner(BuildContext context) {

@@ -1,26 +1,58 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:nowplaying/models/user_model.dart';
-import '../../app/theme.dart';
-import '../../services/firestore_service.dart';
-import '../../services/auth_service.dart';
-import '../../services/media_service.dart';
-import '../../models/now_playing_model.dart';
+import 'package:nowplaying/app/theme.dart';
+import 'package:nowplaying/services/firestore_service.dart';
+import 'package:nowplaying/services/auth_service.dart';
 
 final userProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
   return ref.read(firestoreServiceProvider).userStream(uid);
 });
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
 
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _isUploading = false;
+
+  Future<void> _pickAndUploadImage(String uid) async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 512);
+
+    if (image == null) return;
+
+    setState(() => _isUploading = true);
+    try {
+      await ref.read(firestoreServiceProvider).updateProfilePhoto(uid, File(image.path));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Profile photo updated!'), backgroundColor: AppColors.primary));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update photo: $e'), backgroundColor: AppColors.error));
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final userAsync = ref.watch(userProvider(uid));
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -43,28 +75,58 @@ class ProfileScreen extends ConsumerWidget {
               Center(
                 child: Column(
                   children: [
-                    Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: AppColors.brandGradient,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withOpacity(0.4),
-                            blurRadius: 20,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: user.photoURL != null
-                          ? ClipOval(child: Image.network(user.photoURL!, fit: BoxFit.cover))
-                          : Center(
-                              child: Text(
-                                user.displayName[0].toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w800),
-                              ),
+                    Stack(
+                      children: [
+                        GestureDetector(
+                          onTap: _isUploading ? null : () => _pickAndUploadImage(uid),
+                          child: Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: AppColors.brandGradient,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.4),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
                             ),
+                            child: _isUploading
+                                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                                : (user.photoURL != null
+                                      ? ClipOval(
+                                          child: Image.network(
+                                            user.photoURL!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) =>
+                                                const Icon(Icons.person, color: Colors.white, size: 50),
+                                          ),
+                                        )
+                                      : Center(
+                                          child: Text(
+                                            user.displayName[0].toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 36,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        )),
+                          ),
+                        ),
+                        if (!_isUploading)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                              child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 14),
                     Text(
@@ -90,13 +152,6 @@ class ProfileScreen extends ConsumerWidget {
 
               const SizedBox(height: 16),
 
-              // Manual track entry
-              // _buildSection(
-              //   title: 'MANUAL ENTRY',
-              //   child: _ManualTrackEntry(ref: ref),
-              // ),
-              const SizedBox(height: 16),
-
               // Settings
               _buildSection(
                 title: 'ACCOUNT',
@@ -115,7 +170,7 @@ class ProfileScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 32),
               Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -129,24 +184,20 @@ class ProfileScreen extends ConsumerWidget {
                     ],
                   ),
                   child: ShaderMask(
-                    shaderCallback: (bounds) => LinearGradient(
+                    shaderCallback: (bounds) => const LinearGradient(
                       colors: [AppColors.primary, Colors.pinkAccent, Colors.orangeAccent],
                     ).createShader(bounds),
-                    child:
-                        Text(
-                              'Made with ❤️ for Musk',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                                letterSpacing: 0.4,
-                              ),
-                            )
-                            .animate()
-                            .fadeIn(duration: 600.ms)
-                            .shimmer(duration: 2200.ms, color: Colors.white.withOpacity(0.5)),
-                  ),
+                    child: const Text(
+                      'Made with ❤️ for Musk',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ).animate().fadeIn(duration: 600.ms).shimmer(duration: 2200.ms, color: Colors.white.withOpacity(0.5)),
                 ),
               ),
             ],
@@ -229,89 +280,6 @@ class _SharingToggle extends ConsumerWidget {
             onChanged: (val) async {
               await ref.read(firestoreServiceProvider).updateSharingEnabled(uid, val);
             },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ManualTrackEntry extends StatefulWidget {
-  final WidgetRef ref;
-  const _ManualTrackEntry({required this.ref});
-
-  @override
-  State<_ManualTrackEntry> createState() => _ManualTrackEntryState();
-}
-
-class _ManualTrackEntryState extends State<_ManualTrackEntry> {
-  final _titleCtrl = TextEditingController();
-  final _artistCtrl = TextEditingController();
-  MediaSource _source = MediaSource.spotify;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Manually broadcast what you\'re listening to',
-            style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _titleCtrl,
-            style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-            decoration: const InputDecoration(
-              hintText: 'Track title',
-              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _artistCtrl,
-            style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-            decoration: const InputDecoration(
-              hintText: 'Artist',
-              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<MediaSource>(
-            value: _source,
-            dropdownColor: AppColors.surfaceHigh,
-            style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-            decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
-            items: MediaSource.values.map((s) => DropdownMenuItem(value: s, child: Text(s.label))).toList(),
-            onChanged: (val) => setState(() => _source = val!),
-          ),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: () async {
-              if (_titleCtrl.text.isEmpty || _artistCtrl.text.isEmpty) return;
-              await widget.ref
-                  .read(mediaServiceProvider)
-                  .setManualNowPlaying(title: _titleCtrl.text.trim(), artist: _artistCtrl.text.trim(), source: _source);
-              _titleCtrl.clear();
-              _artistCtrl.clear();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Now playing updated!'), backgroundColor: AppColors.primary),
-                );
-              }
-            },
-            child: Container(
-              height: 44,
-              decoration: BoxDecoration(gradient: AppColors.brandGradient, borderRadius: BorderRadius.circular(12)),
-              child: const Center(
-                child: Text(
-                  'Broadcast',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
-                ),
-              ),
-            ),
           ),
         ],
       ),
