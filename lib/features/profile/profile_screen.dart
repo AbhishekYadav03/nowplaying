@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:nowplaying/models/user_model.dart';
 import 'package:nowplaying/app/theme.dart';
 import 'package:nowplaying/services/firestore_service.dart';
@@ -11,6 +12,10 @@ import 'package:nowplaying/services/auth_service.dart';
 
 final userProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
   return ref.read(firestoreServiceProvider).userStream(uid);
+});
+
+final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
+  return await PackageInfo.fromPlatform();
 });
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -52,6 +57,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final userAsync = ref.watch(userProvider(uid));
+    final packageInfoAsync = ref.watch(packageInfoProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -157,7 +163,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: 'ACCOUNT',
                 child: Column(
                   children: [
-                    _SettingsTile(icon: Icons.info_outline_rounded, label: 'About NowPlaying', onTap: () {}),
+                    packageInfoAsync.when(
+                      data: (info) => _SettingsTile(
+                        icon: Icons.info_outline_rounded,
+                        label: 'About SoftSync',
+                        subtitle: 'v${info.version} (${info.buildNumber})',
+                        onTap: () {},
+                      ),
+                      loading: () =>
+                          _SettingsTile(icon: Icons.info_outline_rounded, label: 'About SoftSync', onTap: () {}),
+                      error: (_, _) =>
+                          _SettingsTile(icon: Icons.info_outline_rounded, label: 'About SoftSync', onTap: () {}),
+                    ),
                     const Divider(height: 1, color: AppColors.border),
                     _SettingsTile(
                       icon: Icons.logout_rounded,
@@ -172,32 +189,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 32),
               Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    gradient: LinearGradient(
-                      colors: [AppColors.primary.withOpacity(0.25), AppColors.primary.withOpacity(0.05)],
-                    ),
-                    boxShadow: [
-                      BoxShadow(color: AppColors.primary.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 6)),
-                    ],
-                  ),
-                  child: ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [AppColors.primary, Colors.pinkAccent, Colors.orangeAccent],
-                    ).createShader(bounds),
-                    child: const Text(
-                      'Made with ❤️ for Musk',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        letterSpacing: 0.4,
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        gradient: LinearGradient(
+                          colors: [AppColors.primary.withOpacity(0.25), AppColors.primary.withOpacity(0.05)],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.25),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
+                      child:
+                          ShaderMask(
+                                shaderCallback: (bounds) => const LinearGradient(
+                                  colors: [AppColors.primary, Colors.pinkAccent, Colors.orangeAccent],
+                                ).createShader(bounds),
+                                child: const Text(
+                                  'Made with ❤️ for Musk',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              )
+                              .animate()
+                              .fadeIn(duration: 600.ms)
+                              .shimmer(duration: 2200.ms, color: Colors.white.withOpacity(0.5)),
                     ),
-                  ).animate().fadeIn(duration: 600.ms).shimmer(duration: 2200.ms, color: Colors.white.withOpacity(0.5)),
+                  ],
                 ),
               ),
             ],
@@ -237,6 +266,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 class _SharingToggle extends ConsumerWidget {
   final String uid;
   final bool isSharingEnabled;
+
   const _SharingToggle({required this.uid, required this.isSharingEnabled});
 
   @override
@@ -290,10 +320,11 @@ class _SharingToggle extends ConsumerWidget {
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String? subtitle;
   final VoidCallback onTap;
   final Color? color;
 
-  const _SettingsTile({required this.icon, required this.label, required this.onTap, this.color});
+  const _SettingsTile({required this.icon, required this.label, this.subtitle, required this.onTap, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -305,6 +336,9 @@ class _SettingsTile extends StatelessWidget {
         label,
         style: TextStyle(color: c, fontSize: 15, fontWeight: FontWeight.w500),
       ),
+      subtitle: subtitle != null
+          ? Text(subtitle!, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary))
+          : null,
       trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary, size: 20),
     );
   }

@@ -16,7 +16,7 @@ class FirestoreService {
   final _db = FirebaseFirestore.instance;
 
   // ImgBB API Key
-  static const String _imgbbKey = 'YOUR_IMGBB_API_KEY_HERE';
+  static const String _imgbbKey = 'c435430f2b8a8675d73ce0f2e9b18915';
 
   // ── Users ─────────────────────────────────────────────────────────────────
 
