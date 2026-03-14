@@ -9,6 +9,7 @@ class UserModel {
   final List<String> friends;
   final DateTime? createdAt;
   final DateTime? lastSeen;
+  final String? appVersion;
 
   const UserModel({
     required this.uid,
@@ -19,6 +20,7 @@ class UserModel {
     this.friends = const [],
     this.createdAt,
     this.lastSeen,
+    this.appVersion,
   });
 
   bool get isOnline {
@@ -38,6 +40,7 @@ class UserModel {
       friends: List<String>.from(data['friends'] ?? []),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       lastSeen: (data['lastSeen'] as Timestamp?)?.toDate(),
+      appVersion: data['appVersion'],
     );
   }
 
@@ -50,6 +53,7 @@ class UserModel {
     'friends': friends,
     'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     'lastSeen': lastSeen != null ? Timestamp.fromDate(lastSeen!) : FieldValue.serverTimestamp(),
+    'appVersion': appVersion,
   };
 
   UserModel copyWith({
@@ -59,6 +63,7 @@ class UserModel {
     bool? isSharingEnabled,
     List<String>? friends,
     DateTime? lastSeen,
+    String? appVersion,
   }) {
     return UserModel(
       uid: uid,
@@ -69,6 +74,7 @@ class UserModel {
       friends: friends ?? this.friends,
       createdAt: createdAt,
       lastSeen: lastSeen ?? this.lastSeen,
+      appVersion: appVersion ?? this.appVersion,
     );
   }
 }

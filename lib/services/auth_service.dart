@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'firestore_service.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) {
@@ -71,7 +72,15 @@ class AuthService {
   }
 
   Future<void> _syncUserToFirestore(User user, {String? displayName}) async {
-    await _firestoreService.upsertUser(user, displayName: displayName);
+    String? version;
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      version = '${packageInfo.version}+${packageInfo.buildNumber}';
+    } catch (e) {
+      print('Error getting package info: $e');
+    }
+
+    await _firestoreService.upsertUser(user, displayName: displayName, appVersion: version);
   }
 
   // Fallback methods for other auth types

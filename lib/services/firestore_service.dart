@@ -20,14 +20,41 @@ class FirestoreService {
 
   // ── Users ─────────────────────────────────────────────────────────────────
 
-  Future<void> upsertUser(User user, {String? displayName}) async {
-    await _db.collection('users').doc(user.uid).set({
-      'displayName': displayName ?? user.displayName ?? 'User ${user.uid.substring(0, 4).toUpperCase()}',
-      'photoURL': user.photoURL,
-      'friendCode': user.uid.substring(0, 8).toUpperCase(),
+  Future<void> upsertUser(User user, {String? displayName, String? appVersion}) async {
+    final userRef = _db.collection('users').doc(user.uid);
+    final userDoc = await userRef.get();
+
+    final Map<String, dynamic> data = {
       'lastLogin': FieldValue.serverTimestamp(),
       'lastSeen': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+      'friendCode': user.uid.substring(0, 8).toUpperCase(),
+    };
+
+    if (appVersion != null) {
+      data['appVersion'] = appVersion;
+    }
+
+    if (!userDoc.exists) {
+      // First time login - set initial data
+      data['displayName'] = displayName ?? user.displayName ?? 'User ${user.uid.substring(0, 4).toUpperCase()}';
+      data['photoURL'] = user.photoURL;
+      data['createdAt'] = FieldValue.serverTimestamp();
+      data['friends'] = [];
+      data['isSharingEnabled'] = true;
+      await userRef.set(data);
+    } else {
+      // Existing user - update login info but DON'T overwrite photoURL or displayName
+      // unless they are missing
+      final existingData = userDoc.data()!;
+      if (existingData['photoURL'] == null && user.photoURL != null) {
+        data['photoURL'] = user.photoURL;
+      }
+      if (existingData['displayName'] == null) {
+        data['displayName'] = displayName ?? user.displayName ?? 'User ${user.uid.substring(0, 4).toUpperCase()}';
+      }
+
+      await userRef.update(data);
+    }
   }
 
   Future<void> updateLastSeen(String uid) async {
@@ -59,6 +86,14 @@ class FirestoreService {
     final url = jsonResponse['data']['url'] as String;
 
     await _db.collection('users').doc(uid).update({'photoURL': url});
+
+    // Optional: Also update the Firebase Auth profile so user.photoURL matches
+    try {
+      await FirebaseAuth.instance.currentUser?.updatePhotoURL(url);
+    } catch (e) {
+      debugPrint('Failed to sync photo URL to Firebase Auth: $e');
+    }
+
     return url;
   }
 

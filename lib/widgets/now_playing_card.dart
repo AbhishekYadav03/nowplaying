@@ -6,6 +6,7 @@ import 'package:nowplaying/services/media_service.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:nowplaying/app/theme.dart';
 import 'package:nowplaying/models/now_playing_model.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class NowPlayingCard extends StatefulWidget {
   final NowPlayingModel model;
@@ -34,6 +35,18 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     return '${diff.inDays}d ago';
+  }
+
+  Future<void> _searchOnGoogle() async {
+    final query = Uri.encodeComponent('${widget.model.title} ${widget.model.artist}');
+    final url = Uri.parse('https://www.google.com/search?q=$query');
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('Error launching search: $e');
+    }
   }
 
   @override
@@ -115,6 +128,13 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
                 ),
               ],
             ),
+          ),
+          // Search icon
+          IconButton(
+            onPressed: _searchOnGoogle,
+            icon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textTertiary),
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Search on Google',
           ),
           // Source badge
           _SourceBadge(source: widget.model.source),

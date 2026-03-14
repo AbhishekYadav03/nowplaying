@@ -47,21 +47,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
-  Future<void> _signInWithGoogle() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      await ref.read(authServiceProvider).signInWithGoogle();
-    } catch (e) {
-      setState(() => _error = 'Google Sign-In failed: $e');
-      print(_error);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
