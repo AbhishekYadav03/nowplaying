@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
@@ -14,7 +15,7 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
 class FirestoreService {
   final _db = FirebaseFirestore.instance;
 
-  // ImgBB API Key (Get a free one at https://api.imgbb.com/)
+  // ImgBB API Key
   static const String _imgbbKey = 'YOUR_IMGBB_API_KEY_HERE';
 
   // ── Users ─────────────────────────────────────────────────────────────────
@@ -98,32 +99,27 @@ class FirestoreService {
     await batch.commit();
   }
 
-  Future<List<UserModel>> getFriends(List<String> uids) async {
-    if (uids.isEmpty) return [];
-    final chunks = <List<String>>[];
-    for (var i = 0; i < uids.length; i += 10) {
-      chunks.add(uids.sublist(i, i + 10 > uids.length ? uids.length : i + 10));
-    }
-    final results = <UserModel>[];
-    for (final chunk in chunks) {
-      final snap = await _db.collection('users').where(FieldPath.documentId, whereIn: chunk).get();
-      results.addAll(snap.docs.map(UserModel.fromFirestore));
-    }
-    return results;
-  }
-
+  // Optimized: Only re-triggers inner stream if friends list IDs actually change
   Stream<List<UserModel>> friendsStatusStream(String uid) {
-    return _db.collection('users').doc(uid).snapshots().asyncExpand((userSnap) {
-      if (!userSnap.exists) return Stream.value([]);
-      final friends = List<String>.from((userSnap.data() as Map<String, dynamic>)['friends'] ?? []);
-      if (friends.isEmpty) return Stream.value([]);
-
-      return _db
-          .collection('users')
-          .where(FieldPath.documentId, whereIn: friends.take(30).toList())
-          .snapshots()
-          .map((snap) => snap.docs.map(UserModel.fromFirestore).toList());
-    });
+    return _db
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .map((snap) {
+          if (!snap.exists) return <String>[];
+          final data = snap.data();
+          return List<String>.from(data?['friends'] ?? []);
+        })
+        .distinct((prev, next) => listEquals(prev, next))
+        .asyncExpand((friends) {
+          if (friends.isEmpty) return Stream.value([]);
+          final batch = friends.take(30).toList();
+          return _db
+              .collection('users')
+              .where(FieldPath.documentId, whereIn: batch)
+              .snapshots()
+              .map((snap) => snap.docs.map(UserModel.fromFirestore).toList());
+        });
   }
 
   Future<UserModel?> findUserByCode(String code) async {
@@ -152,30 +148,38 @@ class FirestoreService {
     });
   }
 
+  // Optimized: Only re-triggers inner stream if friends list IDs actually change
   Stream<List<NowPlayingModel>> friendsFeedStream(String uid) {
-    return _db.collection('users').doc(uid).snapshots().asyncExpand((userSnap) {
-      if (!userSnap.exists) return Stream.value([]);
-      final friends = List<String>.from((userSnap.data() as Map<String, dynamic>)['friends'] ?? []);
-      if (friends.isEmpty) return Stream.value([]);
-
-      final batch = friends.take(30).toList();
-      return _db
-          .collection('nowplaying')
-          .where(FieldPath.documentId, whereIn: batch)
-          .where('isActive', isEqualTo: true)
-          .orderBy('updatedAt', descending: true)
-          .snapshots()
-          .asyncMap((snap) async {
-            final uids = snap.docs.map((d) => d.id).toList();
-            if (uids.isEmpty) return [];
-            final userDocs = await _db.collection('users').where(FieldPath.documentId, whereIn: uids).get();
-            final userMap = {for (final u in userDocs.docs) u.id: u.data()};
-            return snap.docs.map((d) {
-              final u = userMap[d.id];
-              return NowPlayingModel.fromFirestore(d, userName: u?['displayName'], userPhoto: u?['photoURL']);
-            }).toList();
-          });
-    });
+    return _db
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .map((snap) {
+          if (!snap.exists) return <String>[];
+          final data = snap.data();
+          return List<String>.from(data?['friends'] ?? []);
+        })
+        .distinct((prev, next) => listEquals(prev, next))
+        .asyncExpand((friends) {
+          if (friends.isEmpty) return Stream.value([]);
+          final batch = friends.take(30).toList();
+          return _db
+              .collection('nowplaying')
+              .where(FieldPath.documentId, whereIn: batch)
+              .where('isActive', isEqualTo: true)
+              .orderBy('updatedAt', descending: true)
+              .snapshots()
+              .asyncMap((snap) async {
+                if (snap.docs.isEmpty) return [];
+                final uids = snap.docs.map((d) => d.id).toList();
+                final userDocs = await _db.collection('users').where(FieldPath.documentId, whereIn: uids).get();
+                final userMap = {for (final u in userDocs.docs) u.id: u.data()};
+                return snap.docs.map((d) {
+                  final u = userMap[d.id];
+                  return NowPlayingModel.fromFirestore(d, userName: u?['displayName'], userPhoto: u?['photoURL']);
+                }).toList();
+              });
+        });
   }
 
   // ── Reactions ─────────────────────────────────────────────────────────────
