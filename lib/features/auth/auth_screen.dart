@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../app/theme.dart';
-import '../../services/auth_service.dart';
-import '../../widgets/gradient_button.dart';
+import 'package:nowplaying/app/theme.dart';
+import 'package:nowplaying/services/auth_service.dart';
+import 'package:nowplaying/widgets/gradient_button.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -15,9 +15,9 @@ class AuthScreen extends ConsumerStatefulWidget {
 class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _isSignUp = false;
   bool _loading = false;
-  final _emailCtrl  = TextEditingController();
-  final _passCtrl   = TextEditingController();
-  final _nameCtrl   = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
   String? _error;
 
   @override
@@ -29,7 +29,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _submit() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final auth = ref.read(authServiceProvider);
       if (_isSignUp) {
@@ -44,12 +47,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
-  Future<void> _continueAnonymously() async {
-    setState(() { _loading = true; _error = null; });
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      await ref.read(authServiceProvider).signInAnonymously();
+      await ref.read(authServiceProvider).signInWithGoogle();
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = 'Google Sign-In failed: $e');
+      print(_error);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -70,9 +77,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [AppColors.primary.withOpacity(0.25), Colors.transparent],
-                ),
+                gradient: RadialGradient(colors: [AppColors.primary.withOpacity(0.25), Colors.transparent]),
               ),
             ),
           ),
@@ -84,9 +89,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [AppColors.pink.withOpacity(0.2), Colors.transparent],
-                ),
+                gradient: RadialGradient(colors: [AppColors.pink.withOpacity(0.2), Colors.transparent]),
               ),
             ),
           ),
@@ -126,9 +129,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ).animate().fadeIn(delay: 100.ms),
                   const SizedBox(height: 6),
                   Text(
-                    _isSignUp
-                        ? 'Share what you\'re listening to'
-                        : 'See what your friends are playing',
+                    _isSignUp ? 'Share what you\'re listening to' : 'See what your friends are playing',
                     style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
                   ).animate().fadeIn(delay: 150.ms),
                   const SizedBox(height: 40),
@@ -138,7 +139,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     _field(controller: _nameCtrl, hint: 'Display name', icon: Icons.person_outline_rounded),
                     const SizedBox(height: 14),
                   ],
-                  _field(controller: _emailCtrl, hint: 'Email', icon: Icons.email_outlined, keyboard: TextInputType.emailAddress),
+                  _field(
+                    controller: _emailCtrl,
+                    hint: 'Email',
+                    icon: Icons.email_outlined,
+                    keyboard: TextInputType.emailAddress,
+                  ),
                   const SizedBox(height: 14),
                   _field(controller: _passCtrl, hint: 'Password', icon: Icons.lock_outline_rounded, obscure: true),
                   const SizedBox(height: 6),
@@ -176,24 +182,34 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       const Expanded(child: Divider(color: AppColors.border)),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: _loading ? null : _continueAnonymously,
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 52),
-                        side: const BorderSide(color: AppColors.border),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        foregroundColor: AppColors.textSecondary,
-                      ),
-                      child: const Text('Continue as Guest', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                    ),
-                  ),
+                  // const SizedBox(height: 14),
+                  // SizedBox(
+                  //   width: double.infinity,
+                  //   child: OutlinedButton.icon(
+                  //     onPressed: _loading ? null : _signInWithGoogle,
+                  //     style: OutlinedButton.styleFrom(
+                  //       minimumSize: const Size(double.infinity, 52),
+                  //       side: const BorderSide(color: AppColors.border),
+                  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  //       foregroundColor: AppColors.textPrimary,
+                  //     ),
+                  //     icon: Image.network(
+                  //       'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png',
+                  //       height: 20,
+                  //     ),
+                  //     label: const Text(
+                  //       'Continue with Google',
+                  //       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  //     ),
+                  //   ),
+                  // ),
                   const SizedBox(height: 28),
                   Center(
                     child: GestureDetector(
-                      onTap: () => setState(() { _isSignUp = !_isSignUp; _error = null; }),
+                      onTap: () => setState(() {
+                        _isSignUp = !_isSignUp;
+                        _error = null;
+                      }),
                       child: RichText(
                         text: TextSpan(
                           style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
