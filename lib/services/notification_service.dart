@@ -68,50 +68,59 @@ class NotificationService {
     final notification = message.notification;
     if (notification == null) return;
 
+    messengerKey?.currentState?.hideCurrentSnackBar();
     messengerKey?.currentState?.showSnackBar(
       SnackBar(
-        content: Container(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            children: [
-              const Icon(Icons.notifications_active, color: Colors.white, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      notification.title ?? 'Notification',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    Text(
-                      notification.body ?? '',
-                      style: const TextStyle(fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+        content: GestureDetector(
+          onTap: () {
+            messengerKey?.currentState?.hideCurrentSnackBar();
+            _handleNotificationClick(message);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                const Icon(Icons.notifications_active, color: AppColors.primary, size: 22),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        notification.title ?? 'Notification',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: AppColors.textPrimary, // Explicit color for visibility
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        notification.body ?? '',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary, // Explicit color for visibility
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              TextButton(
-                onPressed: () {
-                  messengerKey?.currentState?.hideCurrentSnackBar();
-                  _handleNotificationClick(message);
-                },
-                child: const Text(
-                  'VIEW',
-                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-        backgroundColor: AppColors.surfaceHigh,
+        duration: const Duration(seconds: 5),
+        backgroundColor: AppColors.surfaceHigh, // Background color consistent with app
+        elevation: 6,
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.border, width: 0.5),
+        ),
       ),
     );
   }

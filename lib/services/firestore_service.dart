@@ -20,7 +20,7 @@ class FirestoreService {
 
   // Google Apps Script URL (FREE Notifications Hack)
   static const String _gasUrl =
-      'https://script.google.com/macros/s/AKfycbzICpjJ6PhD6cp_8ey7SrNGUuE7Aqshbj8nKSZtZgUK96R7lRMk2wboeUkURN2Hbbtf/exec';
+      'https://script.google.com/macros/s/AKfycbz9aYqCHWwLlvOL5DhfggxfF7Minx0R3MKtBajGx9MMrMZfmp7W-rTZLeAUMBb2hn1H/exec';
 
   // ── Users ─────────────────────────────────────────────────────────────────
 
