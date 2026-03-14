@@ -18,6 +18,10 @@ class FirestoreService {
   // ImgBB API Key
   static const String _imgbbKey = 'c435430f2b8a8675d73ce0f2e9b18915';
 
+  // Google Apps Script URL (FREE Notifications Hack)
+  static const String _gasUrl =
+      'https://script.google.com/macros/s/AKfycbzICpjJ6PhD6cp_8ey7SrNGUuE7Aqshbj8nKSZtZgUK96R7lRMk2wboeUkURN2Hbbtf/exec';
+
   // ── Users ─────────────────────────────────────────────────────────────────
 
   Future<void> upsertUser(User user, {String? displayName, String? appVersion}) async {
@@ -35,16 +39,16 @@ class FirestoreService {
     }
 
     if (!userDoc.exists) {
-      // First time login - set initial data
       data['displayName'] = displayName ?? user.displayName ?? 'User ${user.uid.substring(0, 4).toUpperCase()}';
       data['photoURL'] = user.photoURL;
       data['createdAt'] = FieldValue.serverTimestamp();
       data['friends'] = [];
       data['isSharingEnabled'] = true;
       await userRef.set(data);
+
+      // Note: Welcome notification is now handled in updateFcmToken
+      // to ensure we have the token available.
     } else {
-      // Existing user - update login info but DON'T overwrite photoURL or displayName
-      // unless they are missing
       final existingData = userDoc.data()!;
       if (existingData['photoURL'] == null && user.photoURL != null) {
         data['photoURL'] = user.photoURL;
@@ -52,8 +56,16 @@ class FirestoreService {
       if (existingData['displayName'] == null) {
         data['displayName'] = displayName ?? user.displayName ?? 'User ${user.uid.substring(0, 4).toUpperCase()}';
       }
-
       await userRef.update(data);
+    }
+  }
+
+  Future<void> _triggerGasNotification(Map<String, dynamic> body) async {
+    if (_gasUrl.isEmpty || _gasUrl.contains('YOUR_GOOGLE')) return;
+    try {
+      await http.post(Uri.parse(_gasUrl), body: jsonEncode(body));
+    } catch (e) {
+      debugPrint('GAS Notification Error: $e');
     }
   }
 
@@ -62,7 +74,17 @@ class FirestoreService {
   }
 
   Future<void> updateFcmToken(String uid, String token) async {
-    await _db.collection('users').doc(uid).update({'fcmToken': token});
+    final userRef = _db.collection('users').doc(uid);
+    final doc = await userRef.get();
+
+    // Check if this is the first time we're getting a token for this user
+    final bool isFirstToken = doc.exists && (doc.data() as Map<String, dynamic>)['fcmToken'] == null;
+
+    await userRef.update({'fcmToken': token});
+
+    if (isFirstToken) {
+      _triggerGasNotification({'action': 'welcomeUser', 'fcmToken': token});
+    }
   }
 
   Future<void> updateSharingEnabled(String uid, bool enabled) async {
@@ -87,7 +109,6 @@ class FirestoreService {
 
     await _db.collection('users').doc(uid).update({'photoURL': url});
 
-    // Optional: Also update the Firebase Auth profile so user.photoURL matches
     try {
       await FirebaseAuth.instance.currentUser?.updatePhotoURL(url);
     } catch (e) {
@@ -134,7 +155,6 @@ class FirestoreService {
     await batch.commit();
   }
 
-  // Optimized: Only re-triggers inner stream if friends list IDs actually change
   Stream<List<UserModel>> friendsStatusStream(String uid) {
     return _db
         .collection('users')
@@ -183,7 +203,6 @@ class FirestoreService {
     });
   }
 
-  // Optimized: Only re-triggers inner stream if friends list IDs actually change
   Stream<List<NowPlayingModel>> friendsFeedStream(String uid) {
     return _db
         .collection('users')
@@ -221,12 +240,34 @@ class FirestoreService {
 
   Future<void> sendReaction(String toUid, String emoji) async {
     final fromUid = FirebaseAuth.instance.currentUser?.uid;
-    if (fromUid == null) return;
+    if (fromUid == null || fromUid == toUid) return;
+
+    // 1. Save to Firestore
     await _db.collection('nowplaying').doc(toUid).collection('reactions').add({
       'fromUid': fromUid,
       'emoji': emoji,
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    // 2. Fetch data for notification
+    try {
+      final toUser = await getUser(toUid);
+      final fromUser = await getUser(fromUid);
+      final npSnap = await _db.collection('nowplaying').doc(toUid).get();
+
+      if (toUser?.fcmToken != null) {
+        _triggerGasNotification({
+          'action': 'sendReaction',
+          'fcmToken': toUser!.fcmToken,
+          'fromName': fromUser?.displayName ?? 'A friend',
+          'track': npSnap.data()?['title'] ?? 'your track',
+          'emoji': emoji,
+          'fromUid': fromUid,
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to send reaction notification: $e');
+    }
   }
 
   Stream<List<ReactionModel>> reactionsStream(String uid) {
