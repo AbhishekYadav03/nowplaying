@@ -470,31 +470,52 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
               ),
               onTap: () async {
-                Navigator.of(context, rootNavigator: true).pop();
+                final messenger = ScaffoldMessenger.of(context);
+
+                Navigator.of(context).pop();
+
+                if (!mounted) return;
+
                 final confirmed = await showDialog<bool>(
                   context: context,
-                  builder: (_) => AlertDialog(
-                    backgroundColor: AppColors.surface,
-                    title: const Text('Remove Friend', style: TextStyle(color: AppColors.textPrimary)),
-                    content: Text(
-                      'Remove ${friend.displayName}?',
-                      style: const TextStyle(color: AppColors.textSecondary),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
-
-                        child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+                  barrierDismissible: false, // safer for destructive action
+                  builder: (dialogContext) {
+                    return AlertDialog(
+                      backgroundColor: AppColors.surface,
+                      title: const Text('Remove Friend', style: TextStyle(color: AppColors.textPrimary)),
+                      content: Text(
+                        'Remove ${friend.displayName ?? "this friend"}?',
+                        style: const TextStyle(color: AppColors.textSecondary),
                       ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
-                        child: const Text('Remove', style: TextStyle(color: AppColors.error)),
-                      ),
-                    ],
-                  ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext, false),
+                          child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext, true),
+                          child: const Text('Remove', style: TextStyle(color: AppColors.error)),
+                        ),
+                      ],
+                    );
+                  },
                 );
+
                 if (confirmed == true && mounted) {
-                  await _removeFriend(myUid, friend.uid);
+                  try {
+                    await _removeFriend(myUid, friend.uid);
+
+                    if (!mounted) return;
+
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Friend removed successfully'), behavior: SnackBarBehavior.floating),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Failed to remove friend: $e'), behavior: SnackBarBehavior.floating),
+                    );
+                  }
                 }
               },
             ),
