@@ -84,7 +84,12 @@ class NowPlayingModel {
         return MediaSource.spotify;
       case 'youtube':
         return MediaSource.youtube;
+      case 'youtube music':
+      case 'youtubemusic':
+      case 'com.google.android.apps.youtube.music':
+        return MediaSource.youtubeMusic;
       case 'apple music':
+      case 'applemusic':
         return MediaSource.appleMusic;
       default:
         return MediaSource.other;

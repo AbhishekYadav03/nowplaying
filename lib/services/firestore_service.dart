@@ -45,9 +45,6 @@ class FirestoreService {
       data['friends'] = [];
       data['isSharingEnabled'] = true;
       await userRef.set(data);
-
-      // Note: Welcome notification is now handled in updateFcmToken
-      // to ensure we have the token available.
     } else {
       final existingData = userDoc.data()!;
       if (existingData['photoURL'] == null && user.photoURL != null) {
@@ -77,7 +74,6 @@ class FirestoreService {
     final userRef = _db.collection('users').doc(uid);
     final doc = await userRef.get();
 
-    // Check if this is the first time we're getting a token for this user
     final bool isFirstToken = doc.exists && (doc.data() as Map<String, dynamic>)['fcmToken'] == null;
 
     await userRef.update({'fcmToken': token});
@@ -279,5 +275,15 @@ class FirestoreService {
         .limit(20)
         .snapshots()
         .map((snap) => snap.docs.map(ReactionModel.fromFirestore).toList());
+  }
+
+  // ── Config ────────────────────────────────────────────────────────────────
+
+  Stream<List<String>> emojisStream() {
+    return _db.collection('config').doc('emojis').snapshots().map((snap) {
+      if (!snap.exists) return ['🔥', '❤️', '😮', '🎉', '👏', '💜'];
+      final data = snap.data();
+      return List<String>.from(data?['list'] ?? ['🔥', '❤️', '😮', '🎉', '👏', '💜']);
+    });
   }
 }

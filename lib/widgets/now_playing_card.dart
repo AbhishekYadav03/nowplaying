@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nowplaying/services/media_service.dart';
+import 'package:nowplaying/services/firestore_service.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:nowplaying/app/theme.dart';
 import 'package:nowplaying/models/now_playing_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class NowPlayingCard extends StatefulWidget {
+class NowPlayingCard extends ConsumerStatefulWidget {
   final NowPlayingModel model;
   final bool canReact;
   final Function(String emoji)? onReact;
@@ -17,14 +19,12 @@ class NowPlayingCard extends StatefulWidget {
   const NowPlayingCard({super.key, required this.model, this.canReact = true, this.onReact, this.isOwn = false});
 
   @override
-  State<NowPlayingCard> createState() => _NowPlayingCardState();
+  ConsumerState<NowPlayingCard> createState() => _NowPlayingCardState();
 }
 
-class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProviderStateMixin {
+class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTickerProviderStateMixin {
   bool _showReactions = false;
   String? _sentEmoji;
-
-  static const _emojis = ['🔥', '❤️', '😮', '🎉', '👏', '💜'];
 
   String get _statusText {
     if (widget.model.isPlaying) return 'listening now';
@@ -37,15 +37,45 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
     return '${diff.inDays}d ago';
   }
 
-  Future<void> _searchOnGoogle() async {
-    final query = Uri.encodeComponent('${widget.model.title} ${widget.model.artist}');
-    final url = Uri.parse('https://www.google.com/search?q=$query');
+  Future<void> _openMediaApp() async {
+    final query = '${widget.model.title} ${widget.model.artist}';
+    final encodedQuery = Uri.encodeComponent(query);
+
+    Uri url;
+    switch (widget.model.source) {
+      case MediaSource.spotify:
+        // Try spotify deep link first
+        final spotifyUri = Uri.parse('spotify:search:$encodedQuery');
+        if (await canLaunchUrl(spotifyUri)) {
+          url = spotifyUri;
+        } else {
+          url = Uri.parse('https://open.spotify.com/search/$encodedQuery');
+        }
+        break;
+      case MediaSource.youtube:
+        url = Uri.parse('https://www.youtube.com/results?search_query=$encodedQuery');
+        break;
+      case MediaSource.youtubeMusic:
+        url = Uri.parse('https://music.youtube.com/search?q=$encodedQuery');
+        break;
+      case MediaSource.appleMusic:
+        url = Uri.parse('https://music.youtube.com/search?q=$encodedQuery');
+        break;
+      default:
+        url = Uri.parse('https://www.google.com/search?q=$encodedQuery');
+    }
+
     try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
+      final success = await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (!success) {
+        // Fallback to Google Search if specific app/link fails
+        await launchUrl(
+          Uri.parse('https://www.google.com/search?q=$encodedQuery'),
+          mode: LaunchMode.externalApplication,
+        );
       }
     } catch (e) {
-      debugPrint('Error launching search: $e');
+      debugPrint('Error launching media app: $e');
     }
   }
 
@@ -55,27 +85,36 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border, width: 0.5),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border.withOpacity(0.5), width: 1),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 24, offset: const Offset(0, 8))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [_buildHeader(), _buildMediaInfo(), if (!widget.isOwn && widget.canReact) _buildReactionBar()],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [_buildHeader(), _buildMediaInfo(), if (!widget.isOwn && widget.canReact) _buildReactionBar()],
+        ),
       ),
-    ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.05, end: 0);
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.04, end: 0);
   }
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(
         children: [
           // Avatar
           Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGradient),
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: AppColors.brandGradient,
+              boxShadow: [
+                BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
             child: widget.model.userPhoto != null
                 ? ClipOval(
                     child: CachedNetworkImage(
@@ -84,7 +123,7 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
                       errorWidget: (context, error, stackTrace) => Center(
                         child: Text(
                           (widget.model.userName ?? 'U')[0].toUpperCase(),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
                         ),
                       ),
                     ),
@@ -92,36 +131,34 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
                 : Center(
                     child: Text(
                       (widget.model.userName ?? 'U')[0].toUpperCase(),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
                     ),
                   ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   (widget.model.userName ?? 'Friend'),
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.textPrimary),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.textPrimary),
                 ),
                 Row(
                   children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: widget.model.isPlaying ? AppColors.online : AppColors.textTertiary,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
+                    if (widget.model.isPlaying)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.online),
+                      ).animate(onPlay: (c) => c.repeat(reverse: true)).fade(duration: 800.ms),
                     Text(
                       _statusText,
                       style: TextStyle(
                         fontSize: 11,
                         color: widget.model.isPlaying ? AppColors.online.withOpacity(0.9) : AppColors.textTertiary,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -129,13 +166,23 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
               ],
             ),
           ),
-          // Search icon
-          IconButton(
-            onPressed: _searchOnGoogle,
-            icon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textTertiary),
-            visualDensity: VisualDensity.compact,
-            tooltip: 'Search on Google',
-          ),
+          // Launch app button
+          if (!widget.isOwn)
+            IconButton(
+              onPressed: _openMediaApp,
+              icon: Icon(
+                widget.model.source == MediaSource.other ? Icons.search_rounded : Icons.open_in_new_rounded,
+                size: 20,
+                color: AppColors.textTertiary,
+              ),
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Open in ${widget.model.source.label}',
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.surfaceHigh.withOpacity(0.5),
+                padding: const EdgeInsets.all(8),
+              ),
+            ),
+          const SizedBox(width: 8),
           // Source badge
           _SourceBadge(source: widget.model.source),
         ],
@@ -146,30 +193,39 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
   Widget _buildMediaInfo() {
     return GestureDetector(
       onLongPress: () {
-        /// copy media info to clipboard
-        final text = '${widget.model.title}  ${widget.model.artist}';
-        final data = ClipboardData(text: text);
-        Clipboard.setData(data);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
+        final text = '${widget.model.title} - ${widget.model.artist}';
+        Clipboard.setData(ClipboardData(text: text));
+        HapticFeedback.mediumImpact();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Copied: $text'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.surfaceHigh,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
       },
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             // Album art
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: AppColors.surfaceHigh,
-                boxShadow: [
-                  BoxShadow(color: AppColors.primary.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 4)),
-                ],
+            Hero(
+              tag: 'art_${widget.model.uid}_${widget.isOwn ? 'own' : 'feed'}',
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: AppColors.surfaceHigh,
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: _buildAlbumArt(),
               ),
-              child: _buildAlbumArt(),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,22 +233,23 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
                   Text(
                     widget.model.title,
                     style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary,
-                      letterSpacing: -0.2,
+                      letterSpacing: -0.4,
+                      height: 1.2,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     widget.model.artist,
-                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                    style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   AudioWave(isPlaying: widget.model.isPlaying),
                 ],
               ),
@@ -214,19 +271,16 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
       return _albumArtPlaceholder();
     }
 
-    // Detect base64 image
     if (_isBase64(art)) {
       Uint8List? bytes = MediaService.albumArtBytes(art);
-
       return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: bytes == null ? _albumArtPlaceholder() : Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true),
       );
     }
 
-    // Otherwise treat as URL
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(16),
       child: CachedNetworkImage(
         imageUrl: art,
         fit: BoxFit.cover,
@@ -238,40 +292,47 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
 
   Widget _buildReactionBar() {
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceHigh.withOpacity(0.3),
+        border: const Border(top: BorderSide(color: AppColors.border, width: 0.5)),
       ),
       child: AnimatedCrossFade(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 300),
         crossFadeState: _showReactions ? CrossFadeState.showSecond : CrossFadeState.showFirst,
         firstChild: _buildReactButton(),
         secondChild: _buildEmojiPicker(),
+        sizeCurve: Curves.easeInOutCubic,
       ),
     );
   }
 
   Widget _buildReactButton() {
-    return GestureDetector(
-      onTap: () => setState(() => _showReactions = true),
+    return InkWell(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        setState(() => _showReactions = true);
+      },
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
             if (_sentEmoji != null) ...[
-              Text(_sentEmoji!, style: const TextStyle(fontSize: 16)),
-              const SizedBox(width: 6),
+              Text(_sentEmoji!, style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
               const Text(
                 'Reacted',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 14, color: AppColors.primary, fontWeight: FontWeight.w700),
               ),
             ] else ...[
-              const Icon(Icons.add_reaction_outlined, color: AppColors.textTertiary, size: 18),
-              const SizedBox(width: 6),
+              const Icon(Icons.add_reaction_outlined, color: AppColors.textTertiary, size: 20),
+              const SizedBox(width: 8),
               const Text(
                 'React',
-                style: TextStyle(fontSize: 13, color: AppColors.textTertiary, fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 14, color: AppColors.textTertiary, fontWeight: FontWeight.w600),
               ),
             ],
+            const Spacer(),
+            const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textTertiary, size: 18),
           ],
         ),
       ),
@@ -279,50 +340,58 @@ class _NowPlayingCardState extends State<NowPlayingCard> with SingleTickerProvid
   }
 
   Widget _buildEmojiPicker() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          ..._emojis.map(
-            (emoji) => GestureDetector(
-              onTap: () {
-                setState(() {
-                  _sentEmoji = emoji;
-                  _showReactions = false;
-                });
-                widget.onReact?.call(emoji);
-              },
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: AppColors.surfaceHigh, borderRadius: BorderRadius.circular(10)),
-                child: Text(emoji, style: const TextStyle(fontSize: 20)),
-              ).animate().scale(duration: 200.ms, curve: Curves.elasticOut),
-            ),
+    return StreamBuilder<List<String>>(
+      stream: ref.read(firestoreServiceProvider).emojisStream(),
+      builder: (context, snapshot) {
+        final emojis = snapshot.data ?? ['🔥', '❤️', '😮', '🎉', '👏', '💜'];
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              ...emojis.map(
+                (emoji) => GestureDetector(
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    setState(() {
+                      _sentEmoji = emoji;
+                      _showReactions = false;
+                    });
+                    widget.onReact?.call(emoji);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceHigh,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border.withOpacity(0.5), width: 1),
+                    ),
+                    child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                  ).animate().scale(duration: 300.ms, curve: Curves.elasticOut),
+                ),
+              ),
+              IconButton(
+                onPressed: () => setState(() => _showReactions = false),
+                icon: const Icon(Icons.close_rounded, color: AppColors.textTertiary, size: 20),
+              ),
+            ],
           ),
-          GestureDetector(
-            onTap: () => setState(() => _showReactions = false),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              child: const Icon(Icons.close, color: AppColors.textTertiary, size: 18),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _albumArtPlaceholder() {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
-          colors: [AppColors.surfaceHigh, AppColors.primary.withOpacity(0.3)],
+          colors: [AppColors.surfaceHigh, AppColors.primary.withOpacity(0.2)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
       ),
-      child: const Icon(Icons.music_note_rounded, color: AppColors.textTertiary, size: 28),
+      child: const Icon(Icons.music_note_rounded, color: AppColors.textTertiary, size: 32),
     );
   }
 }
@@ -334,15 +403,15 @@ class _SourceBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: _color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _color.withOpacity(0.3), width: 0.5),
+        color: _color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _color.withOpacity(0.4), width: 1),
       ),
       child: Text(
         source.label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _color),
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _color, letterSpacing: 0.2),
       ),
     );
   }
@@ -413,16 +482,16 @@ class _AudioWaveState extends State<AudioWave> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 16,
+      height: 18,
       child: Row(
         children: List.generate(_controllers.length, (i) {
           return AnimatedBuilder(
             animation: _controllers[i],
             builder: (_, _) {
               return Container(
-                width: 3,
-                height: 4 + _controllers[i].value * 12,
-                margin: const EdgeInsets.only(right: 3),
+                width: 4,
+                height: 4 + _controllers[i].value * 14,
+                margin: const EdgeInsets.only(right: 4),
                 decoration: BoxDecoration(gradient: AppColors.brandGradient, borderRadius: BorderRadius.circular(2)),
               );
             },
@@ -432,7 +501,6 @@ class _AudioWaveState extends State<AudioWave> with TickerProviderStateMixin {
     );
   }
 }
-// ── Shimmer loading card ──────────────────────────────────────────────────────
 
 class NowPlayingCardSkeleton extends StatelessWidget {
   const NowPlayingCardSkeleton({super.key});
@@ -444,7 +512,7 @@ class NowPlayingCardSkeleton extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.border, width: 0.5),
       ),
       child: Shimmer.fromColors(
@@ -455,22 +523,22 @@ class NowPlayingCardSkeleton extends StatelessWidget {
           children: [
             Row(
               children: [
-                _box(36, 36, radius: 18),
-                const SizedBox(width: 10),
+                _box(38, 38, radius: 19),
+                const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [_box(100, 12), const SizedBox(height: 5), _box(70, 10)],
+                  children: [_box(110, 14), const SizedBox(height: 6), _box(80, 10)],
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Row(
               children: [
-                _box(72, 72, radius: 12),
-                const SizedBox(width: 14),
+                _box(80, 80, radius: 16),
+                const SizedBox(width: 16),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [_box(150, 14), const SizedBox(height: 6), _box(100, 12)],
+                  children: [_box(160, 16), const SizedBox(height: 8), _box(110, 12)],
                 ),
               ],
             ),
