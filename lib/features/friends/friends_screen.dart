@@ -76,7 +76,6 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     setState(() => _removingUids.add(friendUid));
     try {
       await ref.read(firestoreServiceProvider).removeFriend(myUid, friendUid);
-      // Invalidate the provider to force a fresh stream if local updates are slow
       ref.invalidate(friendsStatusProvider(myUid));
     } catch (e) {
       if (mounted) {
@@ -89,6 +88,23 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     }
   }
 
+  Future<void> _setPartner(String myUid, String friendUid, String name) async {
+    try {
+      await ref.read(firestoreServiceProvider).setPartner(myUid, friendUid);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$name is now your partner ❤️'), backgroundColor: AppColors.primary));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -97,6 +113,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     }
 
     final friendsAsync = ref.watch(friendsStatusProvider(uid));
+    final currentUserAsync = ref.watch(userProvider(uid));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -192,8 +209,12 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                   ),
                 );
               }
-              // Added keys to help Flutter identify each tile uniquely for better list updates
-              return Column(children: friends.map((f) => _buildFriendTile(f, uid, key: ValueKey(f.uid))).toList());
+              final currentUser = currentUserAsync.value;
+              return Column(
+                children: friends
+                    .map((f) => _buildFriendTile(f, uid, currentUser?.partnerId, key: ValueKey(f.uid)))
+                    .toList(),
+              );
             },
           ),
         ],
@@ -324,9 +345,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     );
   }
 
-  Widget _buildFriendTile(UserModel friend, String myUid, {Key? key}) {
+  Widget _buildFriendTile(UserModel friend, String myUid, String? partnerId, {Key? key}) {
     final statusText = friend.isOnline ? 'Active Now' : _formatLastSeen(friend.lastSeen);
     final isRemoving = _removingUids.contains(friend.uid);
+    final isPartner = partnerId == friend.uid;
 
     return Container(
       key: key,
@@ -335,7 +357,10 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border, width: 0.5),
+        border: Border.all(
+          color: isPartner ? AppColors.pink.withOpacity(0.5) : AppColors.border,
+          width: isPartner ? 1.5 : 0.5,
+        ),
       ),
       child: Opacity(
         opacity: isRemoving ? 0.5 : 1.0,
@@ -375,9 +400,17 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    friend.displayName,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                  Row(
+                    children: [
+                      Text(
+                        friend.displayName,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                      ),
+                      if (isPartner) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.favorite_rounded, color: AppColors.pink, size: 14),
+                      ],
+                    ],
                   ),
                   Text(
                     statusText,
@@ -390,34 +423,82 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
             else
               GestureDetector(
-                onTap: () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      backgroundColor: AppColors.surface,
-                      title: const Text('Remove Friend', style: TextStyle(color: AppColors.textPrimary)),
-                      content: Text(
-                        'Remove ${friend.displayName}?',
-                        style: const TextStyle(color: AppColors.textSecondary),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
-                          child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
-                          child: const Text('Remove', style: TextStyle(color: AppColors.error)),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (confirmed == true && mounted) {
-                    await _removeFriend(myUid, friend.uid);
-                  }
-                },
+                onTap: () => _showFriendActions(friend, myUid, isPartner),
                 child: const Icon(Icons.more_horiz_rounded, color: AppColors.textTertiary),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFriendActions(UserModel friend, String myUid, bool isPartner) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Icon(isPartner ? Icons.favorite_border_rounded : Icons.favorite_rounded, color: AppColors.pink),
+              title: Text(
+                isPartner ? 'Remove as Partner' : 'Set as Partner',
+                style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                isPartner ? 'No longer dedicate songs instantly' : 'Dedicate songs instantly with one tap',
+                style: const TextStyle(color: AppColors.textTertiary, fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _setPartner(myUid, isPartner ? "" : friend.uid, friend.displayName);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_remove_rounded, color: AppColors.error),
+              title: const Text(
+                'Remove Friend',
+                style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
+              ),
+              onTap: () async {
+                Navigator.of(context, rootNavigator: true).pop();
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    backgroundColor: AppColors.surface,
+                    title: const Text('Remove Friend', style: TextStyle(color: AppColors.textPrimary)),
+                    content: Text(
+                      'Remove ${friend.displayName}?',
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
+
+                        child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
+                        child: const Text('Remove', style: TextStyle(color: AppColors.error)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true && mounted) {
+                  await _removeFriend(myUid, friend.uid);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
           ],
         ),
       ),

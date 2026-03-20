@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -25,6 +26,7 @@ class NowPlayingCard extends ConsumerStatefulWidget {
 class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTickerProviderStateMixin {
   bool _showReactions = false;
   String? _sentEmoji;
+  bool _isDedicating = false;
 
   String get _statusText {
     if (widget.model.isPlaying) return 'listening now';
@@ -44,7 +46,6 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
     Uri url;
     switch (widget.model.source) {
       case MediaSource.spotify:
-        // Try spotify deep link first
         final spotifyUri = Uri.parse('spotify:search:$encodedQuery');
         if (await canLaunchUrl(spotifyUri)) {
           url = spotifyUri;
@@ -59,7 +60,7 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
         url = Uri.parse('https://music.youtube.com/search?q=$encodedQuery');
         break;
       case MediaSource.appleMusic:
-        url = Uri.parse('https://music.youtube.com/search?q=$encodedQuery');
+        url = Uri.parse('https://music.apple.com/search?term=$encodedQuery');
         break;
       default:
         url = Uri.parse('https://www.google.com/search?q=$encodedQuery');
@@ -68,7 +69,6 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
     try {
       final success = await launchUrl(url, mode: LaunchMode.externalApplication);
       if (!success) {
-        // Fallback to Google Search if specific app/link fails
         await launchUrl(
           Uri.parse('https://www.google.com/search?q=$encodedQuery'),
           mode: LaunchMode.externalApplication,
@@ -76,6 +76,45 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
       }
     } catch (e) {
       debugPrint('Error launching media app: $e');
+    }
+  }
+
+  Future<void> _handleDedicate() async {
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    if (myUid == null) return;
+
+    setState(() => _isDedicating = true);
+
+    try {
+      final myUser = await ref.read(firestoreServiceProvider).getUser(myUid);
+      final partnerId = myUser?.partnerId;
+
+      if (partnerId == null || partnerId.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('No partner set. Add a partner in Profile to dedicate songs!'),
+              action: SnackBarAction(label: 'SETUP', onPressed: () {}), // TODO: Navigate to partner setup
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        await ref.read(firestoreServiceProvider).dedicateSong(myUid, partnerId, widget.model.title);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Song dedicated to your partner! ❤️'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppColors.primary,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Dedication Error: $e');
+    } finally {
+      if (mounted) setState(() => _isDedicating = false);
     }
   }
 
@@ -93,10 +132,14 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
         borderRadius: BorderRadius.circular(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [_buildHeader(), _buildMediaInfo(), if (!widget.isOwn && widget.canReact) _buildReactionBar()],
+          children: [
+            _buildHeader(),
+            _buildMediaInfo(),
+            if (widget.isOwn) _buildDedicateBar() else if (widget.canReact) _buildReactionBar(),
+          ],
         ),
       ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.04, end: 0);
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.04, end: 0, duration: 400.ms);
   }
 
   Widget _buildHeader() {
@@ -104,7 +147,6 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(
         children: [
-          // Avatar
           Container(
             width: 38,
             height: 38,
@@ -141,7 +183,7 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  (widget.model.userName ?? 'Friend'),
+                  widget.isOwn ? 'You' : (widget.model.userName ?? 'Friend'),
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.textPrimary),
                 ),
                 Row(
@@ -166,7 +208,6 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
               ],
             ),
           ),
-          // Launch app button
           if (!widget.isOwn)
             IconButton(
               onPressed: _openMediaApp,
@@ -183,7 +224,6 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
               ),
             ),
           const SizedBox(width: 8),
-          // Source badge
           _SourceBadge(source: widget.model.source),
         ],
       ),
@@ -209,7 +249,6 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            // Album art
             Hero(
               tag: 'art_${widget.model.uid}_${widget.isOwn ? 'own' : 'feed'}',
               child: Container(
@@ -286,6 +325,40 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
         fit: BoxFit.cover,
         placeholder: (_, _) => _albumArtPlaceholder(),
         errorWidget: (_, _, _) => _albumArtPlaceholder(),
+      ),
+    );
+  }
+
+  Widget _buildDedicateBar() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.05),
+        border: const Border(top: BorderSide(color: AppColors.border, width: 0.5)),
+      ),
+      child: InkWell(
+        onTap: _isDedicating ? null : _handleDedicate,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_isDedicating)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                )
+              else
+                const Icon(Icons.favorite_rounded, color: AppColors.pink, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                _isDedicating ? 'Dedicating...' : 'Dedicate this song to Partner',
+                style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

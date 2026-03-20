@@ -20,7 +20,7 @@ class FirestoreService {
 
   // Google Apps Script URL (FREE Notifications Hack)
   static const String _gasUrl =
-      'https://script.google.com/macros/s/AKfycbz9aYqCHWwLlvOL5DhfggxfF7Minx0R3MKtBajGx9MMrMZfmp7W-rTZLeAUMBb2hn1H/exec';
+      'https://script.google.com/macros/s/AKfycbx1GAw4yx0EJwr53r4v92rgTh6pwxmhBNUCbb3zRBLJCCN67vd4rSiVkLzleMubRaXI/exec';
 
   // ── Users ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +57,11 @@ class FirestoreService {
     }
   }
 
+  Future<void> setPartner(String myUid, String partnerUid) async {
+    await _db.collection('users').doc(myUid).update({'partnerId': partnerUid});
+    await _db.collection('users').doc(partnerUid).update({'partnerId': myUid});
+  }
+
   Future<void> _triggerGasNotification(Map<String, dynamic> body) async {
     if (_gasUrl.isEmpty || _gasUrl.contains('YOUR_GOOGLE')) return;
     try {
@@ -79,7 +84,12 @@ class FirestoreService {
     await userRef.update({'fcmToken': token});
 
     if (isFirstToken) {
-      _triggerGasNotification({'action': 'welcomeUser', 'fcmToken': token});
+      _triggerGasNotification({
+        'action': 'welcomeUser',
+        'fcmToken': token,
+        'title': '🎵 Welcome to NowPlaying!',
+        'body': 'Add friends and start sharing what you\'re listening to.',
+      });
     }
   }
 
@@ -252,17 +262,37 @@ class FirestoreService {
       final npSnap = await _db.collection('nowplaying').doc(toUid).get();
 
       if (toUser?.fcmToken != null) {
+        final track = npSnap.data()?['title'] ?? 'your track';
+        final fromName = fromUser?.displayName ?? 'A friend';
         _triggerGasNotification({
           'action': 'sendReaction',
           'fcmToken': toUser!.fcmToken,
-          'fromName': fromUser?.displayName ?? 'A friend',
-          'track': npSnap.data()?['title'] ?? 'your track',
-          'emoji': emoji,
+          'title': '$emoji $fromName reacted!',
+          'body': 'They reacted to "$track"',
           'fromUid': fromUid,
         });
       }
     } catch (e) {
       debugPrint('Failed to send reaction notification: $e');
+    }
+  }
+
+  Future<void> dedicateSong(String fromUid, String toUid, String trackName) async {
+    try {
+      final toUser = await getUser(toUid);
+      final fromUser = await getUser(fromUid);
+
+      if (toUser?.fcmToken != null) {
+        final fromName = fromUser?.displayName ?? 'Someone';
+        await _triggerGasNotification({
+          'action': 'dedicateSong',
+          'fcmToken': toUser!.fcmToken,
+          'title': 'Song Dedication 🎵',
+          'body': '$fromName dedicated "$trackName" to you',
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to dedicate song: $e');
     }
   }
 
