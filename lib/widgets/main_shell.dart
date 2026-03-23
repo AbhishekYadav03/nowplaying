@@ -1,16 +1,68 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import '../app/theme.dart';
+import 'dart:async' show Timer;
 
-class MainShell extends StatelessWidget {
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:nowplaying/app/theme.dart';
+
+import 'package:nowplaying/services/firestore_service.dart' show firestoreServiceProvider;
+
+class MainShell extends ConsumerStatefulWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
+
+  @override
+  ConsumerState createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserver {
+  Timer? _presenceTimer;
+
+  @override
+  void initState() {
+    _startPresenceTimer();
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _presenceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPresenceTimer() {
+    _presenceTimer?.cancel();
+    _presenceTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      _updateLastSeen();
+    });
+    _updateLastSeen();
+  }
+
+  void _updateLastSeen() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      ref.read(firestoreServiceProvider).updateLastSeen(uid);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startPresenceTimer();
+    }
+    if (state == AppLifecycleState.paused) {
+      _presenceTimer?.cancel();
+      _updateLastSeen();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     return Scaffold(
-      body: child,
+      body: widget.child,
       bottomNavigationBar: _BottomNav(location: location),
     );
   }
@@ -23,10 +75,10 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final int index = switch (location) {
-      '/'         => 0,
-      '/friends'  => 1,
-      '/profile'  => 2,
-      _           => 0,
+      '/' => 0,
+      '/friends' => 1,
+      '/profile' => 2,
+      _ => 0,
     };
 
     return Container(
@@ -40,9 +92,9 @@ class _BottomNav extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _NavItem(icon: Icons.headphones_rounded,  label: 'Feed',    index: 0, selected: index == 0, route: '/'),
-              _NavItem(icon: Icons.group_rounded,       label: 'Friends', index: 1, selected: index == 1, route: '/friends'),
-              _NavItem(icon: Icons.person_rounded,      label: 'Profile', index: 2, selected: index == 2, route: '/profile'),
+              _NavItem(icon: Icons.headphones_rounded, label: 'Feed', index: 0, selected: index == 0, route: '/'),
+              _NavItem(icon: Icons.group_rounded, label: 'Friends', index: 1, selected: index == 1, route: '/friends'),
+              _NavItem(icon: Icons.person_rounded, label: 'Profile', index: 2, selected: index == 2, route: '/profile'),
             ],
           ),
         ),
@@ -81,11 +133,7 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: selected ? AppColors.primary : AppColors.textTertiary,
-              size: 24,
-            ),
+            Icon(icon, color: selected ? AppColors.primary : AppColors.textTertiary, size: 24),
             const SizedBox(height: 4),
             Text(
               label,
