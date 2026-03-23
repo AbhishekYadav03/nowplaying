@@ -23,7 +23,7 @@ class MediaNotificationListenerService : NotificationListenerService() {
 
     override fun onCreate() {
         super.onCreate()
-        sessionManager = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+        sessionManager = getSystemService(MEDIA_SESSION_SERVICE) as MediaSessionManager
     }
 
     override fun onListenerConnected() {
@@ -79,6 +79,7 @@ class MediaNotificationListenerService : NotificationListenerService() {
         }
 
         val packageName = controller.packageName ?: ""
+
         val safeMeta = meta.toSafeMap()
         
         val title = safeMeta["title"] as? String ?: "Unknown"
@@ -86,7 +87,9 @@ class MediaNotificationListenerService : NotificationListenerService() {
         
         // Artwork extraction logic
         var albumArt = safeMeta["artwork"] as? String
-        
+        val duration = safeMeta["duration"]
+
+
         // If metadata doesn't have it, try extraction from the notification (crucial for YouTube)
         if (albumArt.isNullOrEmpty()) {
             val notificationBitmap = getArtworkFromNotification(packageName)
@@ -101,10 +104,11 @@ class MediaNotificationListenerService : NotificationListenerService() {
             "title" to title,
             "artist" to artist,
             "albumArt" to albumArt,
+            "duration" to duration,
             "isPlaying" to isPlaying,
             "isActive" to true,
             "packageName" to packageName,
-            "metadata" to safeMeta,
+            "playbackInfo" to controller.playbackInfo.toString(),
             "updatedAt" to FieldValue.serverTimestamp(),
             "source" to parseSource(packageName)
         )
@@ -202,4 +206,13 @@ fun bitmapToBase64(bitmap: Bitmap?): String? {
     } catch (e: Exception) {
         null
     }
+}
+fun isYouTube(packageName: String?): Boolean {
+    return packageName == "com.google.android.youtube"
+}
+fun extractYoutubeThumbnail(meta: MediaMetadata): String? {
+    val mediaId = meta.getString(MediaMetadata.METADATA_KEY_MEDIA_ID) ?: return null
+
+    // if mediaId contains videoId
+    return "https://img.youtube.com/vi/$mediaId/hqdefault.jpg"
 }

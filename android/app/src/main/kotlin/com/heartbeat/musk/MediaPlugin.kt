@@ -9,10 +9,9 @@ import android.provider.Settings
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
-import android.graphics.Bitmap
-import android.util.Base64
-import java.io.ByteArrayOutputStream
 import android.media.MediaMetadata
+import com.google.firebase.firestore.FieldValue
+import com.google.type.DateTime
 
 class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
 
@@ -129,7 +128,7 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
     }
 
     private val mediaControllerCallback = object : MediaController.Callback() {
-        override fun onMetadataChanged(metadata:MediaMetadata?) {
+        override fun onMetadataChanged(metadata: MediaMetadata?) {
             activeController?.let { emitMediaInfo(it) }
         }
 
@@ -159,23 +158,26 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
         val title = safeMeta["title"] as? String ?: "Unknown Title"
         val artist = safeMeta["artist"] as? String ?: "Unknown Artist"
         val albumArt = safeMeta["artwork"] as? String
+        val duration = safeMeta["duration"]
 
         val packageName = controller.packageName ?: ""
         val state = controller.playbackState
         val isPlaying = state?.state == PlaybackState.STATE_PLAYING
-
-        val payload = mapOf(
+        val nowMillis = System.currentTimeMillis()
+        val data = mutableMapOf(
             "title" to title,
             "artist" to artist,
             "albumArt" to albumArt,
+            "duration" to duration,
             "isPlaying" to isPlaying,
             "isActive" to true,
             "packageName" to packageName,
-            "metadata" to safeMeta,
+            "playbackInfo" to controller.playbackInfo.toString(),
+            "updatedAt" to nowMillis,
             "source" to parseSource(packageName)
         )
 
-        eventSink?.success(payload)
+        eventSink?.success(data)
     }
 
     private fun hasNotificationAccess(): Boolean {
