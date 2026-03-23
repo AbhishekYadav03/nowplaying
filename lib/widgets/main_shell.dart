@@ -18,16 +18,19 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserver {
   Timer? _presenceTimer;
-
+  bool isInBackground = false;
+  String? uid;
   @override
   void initState() {
-    _startPresenceTimer();
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startPresenceTimer();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    uid = FirebaseAuth.instance.currentUser?.uid;
     _presenceTimer?.cancel();
     super.dispose();
   }
@@ -41,21 +44,39 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
   }
 
   void _updateLastSeen() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
-      ref.read(firestoreServiceProvider).updateLastSeen(uid);
+      ref.read(firestoreServiceProvider).updateLastSeen(uid!);
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _startPresenceTimer();
+    if (uid == null) return;
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        isInBackground = false;
+        _startPresenceTimer();
+        break;
+
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+        if (!isInBackground) {
+          isInBackground = true;
+          _handleAppBackground();
+        }
+        break;
+
+      case AppLifecycleState.detached:
+        _presenceTimer?.cancel();
+        break;
     }
-    if (state == AppLifecycleState.paused) {
-      _presenceTimer?.cancel();
-      _updateLastSeen();
-    }
+  }
+
+  void _handleAppBackground() {
+    _presenceTimer?.cancel();
+    _updateLastSeen();
   }
 
   @override
