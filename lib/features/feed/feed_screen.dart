@@ -89,6 +89,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
     final feedAsync = ref.watch(friendsFeedProvider(uid));
     final currentUserAsync = ref.watch(currentUserStreamProvider(uid));
     final friendsStatusAsync = ref.watch(friendsStatusProvider(uid));
+    final currentUser = currentUserAsync.value;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -122,6 +123,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) => NowPlayingCard(
                     model: items[i],
+                    partnerId: currentUser?.partnerId,
                     onReact: (emoji) => ref.read(firestoreServiceProvider).sendReaction(items[i].uid, emoji),
                   ),
                   childCount: items.length,

@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nowplaying/features/friends/friends_screen.dart';
 import 'package:nowplaying/services/media_service.dart';
 import 'package:nowplaying/services/firestore_service.dart';
+import 'package:nowplaying/widgets/media_controls.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:nowplaying/app/theme.dart';
 import 'package:nowplaying/models/now_playing_model.dart';
@@ -16,8 +18,16 @@ class NowPlayingCard extends ConsumerStatefulWidget {
   final bool canReact;
   final Function(String emoji)? onReact;
   final bool isOwn;
+  final String? partnerId;
 
-  const NowPlayingCard({super.key, required this.model, this.canReact = true, this.onReact, this.isOwn = false});
+  const NowPlayingCard({
+    super.key,
+    required this.model,
+    this.canReact = true,
+    this.onReact,
+    this.isOwn = false,
+    this.partnerId,
+  });
 
   @override
   ConsumerState<NowPlayingCard> createState() => _NowPlayingCardState();
@@ -93,8 +103,7 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('No partner set. Add a partner in Profile to dedicate songs!'),
-              action: SnackBarAction(label: 'SETUP', onPressed: () {}), // TODO: Navigate to partner setup
+              content: const Text('No partner set. Add a partner in Friends Screen to dedicate songs!'),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -139,7 +148,7 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
           ],
         ),
       ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.04, end: 0, duration: 400.ms);
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.04, end: 0, curve: Curves.easeOutBack);
   }
 
   Widget _buildHeader() {
@@ -289,7 +298,33 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 10),
-                  AudioWave(isPlaying: widget.model.isPlaying),
+                  Row(
+                    children: [
+                      AudioWave(isPlaying: widget.model.isPlaying),
+                      SizedBox(width: 20),
+                      if (widget.isOwn)
+                        Builder(
+                          builder: (context) {
+                            final mediaService = ref.read(mediaServiceProvider);
+                            return MediaControls(
+                              isPlaying: widget.model.isPlaying,
+                              onPrevious: () => mediaService.skipPrevious(),
+                              onPause: () => mediaService.pause(),
+                              onNext: () => mediaService,
+                              onPlay: () => mediaService.play(),
+                            );
+                          },
+                        ),
+                      if (widget.model.uid == widget.partnerId)
+                        MediaControls(
+                          isPlaying: widget.model.isPlaying,
+                          onPrevious: () => _controlMedia('skipPrevious'),
+                          onPause: () => _controlMedia(widget.model.isPlaying ? 'pause' : 'play'),
+                          onNext: () => _controlMedia('skipNext'),
+                          onPlay: () => _controlMedia(widget.model.isPlaying ? 'pause' : 'play'),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -412,37 +447,58 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
     );
   }
 
+  Future<void> _controlMedia(String command) async {
+    HapticFeedback.mediumImpact();
+    final toUser = await ref.read(firestoreServiceProvider).getUser(widget.model.uid);
+    if (toUser?.fcmToken != null) {
+      await ref.read(firestoreServiceProvider).triggerMediaControl(toUser!.fcmToken!, command);
+    }
+  }
+
   Widget _buildEmojiPicker() {
     return StreamBuilder<List<String>>(
       stream: ref.read(firestoreServiceProvider).emojisStream(),
       builder: (context, snapshot) {
         final emojis = snapshot.data ?? ['🔥', '❤️', '😮', '🎉', '👏', '💜'];
+
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              ...emojis.map(
-                (emoji) => GestureDetector(
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    setState(() {
-                      _sentEmoji = emoji;
-                      _showReactions = false;
-                    });
-                    widget.onReact?.call(emoji);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceHigh,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border.withOpacity(0.5), width: 1),
-                    ),
-                    child: Text(emoji, style: const TextStyle(fontSize: 22)),
-                  ).animate().scale(duration: 300.ms, curve: Curves.elasticOut),
+              // ✅ Scrollable emojis only
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: emojis.map((emoji) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.mediumImpact();
+                            setState(() {
+                              _sentEmoji = emoji;
+                              _showReactions = false;
+                            });
+                            widget.onReact?.call(emoji);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceHigh,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border.withOpacity(0.5), width: 1),
+                            ),
+                            child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                          ).animate().scale(duration: 300.ms, curve: Curves.elasticOut),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
+
+              // ❌ Not scrollable (fixed)
               IconButton(
                 onPressed: () => setState(() => _showReactions = false),
                 icon: const Icon(Icons.close_rounded, color: AppColors.textTertiary, size: 20),

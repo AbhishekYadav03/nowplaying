@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../app/theme.dart';
 import 'firestore_service.dart';
+import 'media_service.dart';
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService(ref);
@@ -12,7 +13,11 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Background message handling
+  // Silent media control in background if possible
+  if (message.data['action'] == 'media_control') {
+    // Note: Background execution is limited. For full background control,
+    // you'd typically use a platform-specific background task or a high-priority message.
+  }
 }
 
 class NotificationService {
@@ -40,7 +45,7 @@ class NotificationService {
     // Token refresh
     messaging.onTokenRefresh.listen(_saveToken);
 
-    // 1. Handle background notification click (when app was opened from terminated state)
+    // 1. Handle background notification click
     final initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
       _handleNotificationClick(initialMessage);
@@ -51,12 +56,36 @@ class NotificationService {
 
     // 3. Handle foreground messages
     FirebaseMessaging.onMessage.listen((message) {
+      if (message.data['action'] == 'media_control') {
+        _handleMediaControl(message);
+      }
       _showInAppNotification(message);
     });
   }
 
+  void _handleMediaControl(RemoteMessage message) {
+    final command = message.data['command'];
+    final mediaService = _ref.read(mediaServiceProvider);
+
+    switch (command) {
+      case 'play':
+        mediaService.play();
+        break;
+      case 'pause':
+        mediaService.pause();
+        break;
+      case 'skipNext':
+        mediaService.skipNext();
+        break;
+      case 'skipPrevious':
+        mediaService.skipPrevious();
+        break;
+    }
+  }
+
   static void _handleNotificationClick(RemoteMessage message) {
-    final screen = message.data['screen'];
+    // If it's a media control click, we might just want to go to feed
+    final screen = message.data['screen'] ?? 'feed';
     if (screen == 'feed') {
       router?.go('/');
     } else if (screen == 'friends') {
@@ -80,7 +109,13 @@ class NotificationService {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
-                const Icon(Icons.notifications_active, color: AppColors.primary, size: 22),
+                Icon(
+                  message.data['action'] == 'media_control'
+                      ? Icons.settings_remote_rounded
+                      : Icons.notifications_active,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -89,19 +124,12 @@ class NotificationService {
                     children: [
                       Text(
                         notification.title ?? 'Notification',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: AppColors.textPrimary, // Explicit color for visibility
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         notification.body ?? '',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary, // Explicit color for visibility
-                        ),
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -114,7 +142,7 @@ class NotificationService {
         ),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 5),
-        backgroundColor: AppColors.surfaceHigh, // Background color consistent with app
+        backgroundColor: AppColors.surfaceHigh,
         elevation: 6,
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         shape: RoundedRectangleBorder(

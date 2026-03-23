@@ -5,15 +5,14 @@ import android.content.Context
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
-import android.os.Build
 import android.provider.Settings
-import androidx.annotation.RequiresApi
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import android.graphics.Bitmap
 import android.util.Base64
 import java.io.ByteArrayOutputStream
+import android.media.MediaMetadata
 
 class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
 
@@ -26,7 +25,7 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
     private var activeController: MediaController? = null
 
     companion object {
-        const val EVENT_CHANNEL  = "com.nowplaying/media_events"
+        const val EVENT_CHANNEL = "com.nowplaying/media_events"
         const val METHOD_CHANNEL = "com.nowplaying/media"
     }
 
@@ -41,6 +40,26 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
             when (call.method) {
                 "hasNotificationAccess" -> result.success(hasNotificationAccess())
                 "openNotificationSettings" -> openNotificationSettings()
+                "play" -> {
+                    activeController?.transportControls?.play()
+                    result.success(null)
+                }
+
+                "pause" -> {
+                    activeController?.transportControls?.pause()
+                    result.success(null)
+                }
+
+                "skipNext" -> {
+                    activeController?.transportControls?.skipToNext()
+                    result.success(null)
+                }
+
+                "skipPrevious" -> {
+                    activeController?.transportControls?.skipToPrevious()
+                    result.success(null)
+                }
+
                 else -> result.notImplemented()
             }
         }
@@ -51,7 +70,6 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
         methodChannel.setMethodCallHandler(null)
     }
 
-    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
         eventSink = events
         if (!hasNotificationAccess()) {
@@ -66,14 +84,13 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
         activeController?.unregisterCallback(mediaControllerCallback)
     }
 
-    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     private fun startMediaSessionListener() {
         try {
-            sessionManager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+            sessionManager =
+                context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
             val componentName = ComponentName(context, MediaNotificationListenerService::class.java)
 
             sessionManager?.addOnActiveSessionsChangedListener({ controllers ->
-
                 val controller =
                     controllers?.firstOrNull {
                         it.playbackState?.state == PlaybackState.STATE_PLAYING
@@ -93,7 +110,6 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     private fun attachController(controller: MediaController) {
         activeController?.unregisterCallback(mediaControllerCallback)
         activeController = controller
@@ -103,7 +119,6 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
         emitCurrentState(controller)
     }
 
-    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     private fun emitCurrentState(controller: MediaController) {
         val meta = controller.metadata
         val state = controller.playbackState
@@ -113,9 +128,8 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     private val mediaControllerCallback = object : MediaController.Callback() {
-        override fun onMetadataChanged(metadata: android.media.MediaMetadata?) {
+        override fun onMetadataChanged(metadata:MediaMetadata?) {
             activeController?.let { emitMediaInfo(it) }
         }
 
@@ -138,43 +152,27 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     private fun emitMediaInfo(controller: MediaController) {
         val meta = controller.metadata ?: return
+        val safeMeta = meta.toSafeMap()
 
-        val title = meta.getString(android.media.MediaMetadata.METADATA_KEY_TITLE) ?: return
-        val artist = meta.getString(android.media.MediaMetadata.METADATA_KEY_ARTIST)
-            ?: meta.getString(android.media.MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
-            ?: "Unknown"
+        val title = safeMeta["title"] as? String ?: "Unknown Title"
+        val artist = safeMeta["artist"] as? String ?: "Unknown Artist"
+        val albumArt = safeMeta["artwork"] as? String
 
         val packageName = controller.packageName ?: ""
-
         val state = controller.playbackState
         val isPlaying = state?.state == PlaybackState.STATE_PLAYING
-
-        // --- Album art handling ---
-        val bitmapArt =
-            meta.getBitmap(android.media.MediaMetadata.METADATA_KEY_ALBUM_ART)
-                ?: meta.getBitmap(android.media.MediaMetadata.METADATA_KEY_ART)
-
-        val albumArt = bitmapToBase64(bitmapArt)
-            ?: meta.getString(android.media.MediaMetadata.METADATA_KEY_ART_URI)
-
-        val source = when {
-            packageName.contains("spotify") -> "Spotify"
-            packageName.contains("youtube.music") -> "YouTube Music"
-            packageName.contains("youtube") -> "YouTube"
-            packageName.contains("apple") -> "Apple Music"
-            else -> "Other"
-        }
 
         val payload = mapOf(
             "title" to title,
             "artist" to artist,
             "albumArt" to albumArt,
-            "source" to source,
+            "isPlaying" to isPlaying,
+            "isActive" to true,
             "packageName" to packageName,
-            "isPlaying" to isPlaying
+            "metadata" to safeMeta,
+            "source" to parseSource(packageName)
         )
 
         eventSink?.success(payload)
@@ -193,13 +191,5 @@ class MediaPlugin : FlutterPlugin, EventChannel.StreamHandler {
         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
     }
-    private fun bitmapToBase64(bitmap: Bitmap?): String? {
-        if (bitmap == null) return null
-
-        val stream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
-        val bytes = stream.toByteArray()
-
-        return Base64.encodeToString(bytes, Base64.NO_WRAP)
-    }
 }
+

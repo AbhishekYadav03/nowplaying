@@ -18,9 +18,7 @@ class FirestoreService {
   // ImgBB API Key
   static const String _imgbbKey = 'c435430f2b8a8675d73ce0f2e9b18915';
 
-  // Google Apps Script URL (FREE Notifications Hack)
-  static const String _gasUrl =
-      'https://script.google.com/macros/s/AKfycbx1GAw4yx0EJwr53r4v92rgTh6pwxmhBNUCbb3zRBLJCCN67vd4rSiVkLzleMubRaXI/exec';
+  String? _cachedGasUrl;
 
   // ── Users ─────────────────────────────────────────────────────────────────
 
@@ -62,10 +60,23 @@ class FirestoreService {
     await _db.collection('users').doc(partnerUid).update({'partnerId': myUid});
   }
 
-  Future<void> _triggerGasNotification(Map<String, dynamic> body) async {
-    if (_gasUrl.isEmpty || _gasUrl.contains('YOUR_GOOGLE')) return;
+  Future<String?> _getGasUrl() async {
+    if (_cachedGasUrl != null) return _cachedGasUrl;
     try {
-      await http.post(Uri.parse(_gasUrl), body: jsonEncode(body));
+      final doc = await _db.collection('config').doc('notifications').get();
+      _cachedGasUrl = doc.data()?['gasUrl'];
+      return _cachedGasUrl;
+    } catch (e) {
+      debugPrint('Error fetching GAS URL: $e');
+      return null;
+    }
+  }
+
+  Future<void> _triggerGasNotification(Map<String, dynamic> body) async {
+    final url = await _getGasUrl();
+    if (url == null || url.isEmpty || url.contains('YOUR_GOOGLE')) return;
+    try {
+      await http.post(Uri.parse(url), body: jsonEncode(body));
     } catch (e) {
       debugPrint('GAS Notification Error: $e');
     }
@@ -242,20 +253,18 @@ class FirestoreService {
         });
   }
 
-  // ── Reactions ─────────────────────────────────────────────────────────────
+  // ── Reactions & Remote Control ────────────────────────────────────────────
 
   Future<void> sendReaction(String toUid, String emoji) async {
     final fromUid = FirebaseAuth.instance.currentUser?.uid;
     if (fromUid == null || fromUid == toUid) return;
 
-    // 1. Save to Firestore
     await _db.collection('nowplaying').doc(toUid).collection('reactions').add({
       'fromUid': fromUid,
       'emoji': emoji,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    // 2. Fetch data for notification
     try {
       final toUser = await getUser(toUid);
       final fromUser = await getUser(fromUid);
@@ -268,7 +277,7 @@ class FirestoreService {
           'action': 'sendReaction',
           'fcmToken': toUser!.fcmToken,
           'title': '$emoji $fromName reacted!',
-          'body': 'They reacted to "$track"',
+          'body': '$fromName reacted to your track "$track"',
           'fromUid': fromUid,
         });
       }
@@ -288,11 +297,40 @@ class FirestoreService {
           'action': 'dedicateSong',
           'fcmToken': toUser!.fcmToken,
           'title': 'Song Dedication 🎵',
-          'body': '$fromName dedicated "$trackName" to you',
+          'body': '$fromName thinks of you when listening to "$trackName" 🎶',
         });
       }
     } catch (e) {
       debugPrint('Failed to dedicate song: $e');
+    }
+  }
+
+  Future<void> triggerMediaControl(String fcmToken, String command) async {
+    final fromUid = FirebaseAuth.instance.currentUser?.uid;
+    final fromUser = fromUid != null ? await getUser(fromUid) : null;
+    final fromName = fromUser?.displayName ?? 'A friend';
+
+    await _triggerGasNotification({
+      'fcmToken': fcmToken,
+      'action': 'media_control',
+      'command': command,
+      'title': 'Remote Control 🎮',
+      'body': '$fromName ${_getCommandLabel(command)} your music',
+    });
+  }
+
+  String _getCommandLabel(String command) {
+    switch (command) {
+      case 'play':
+        return 'resumed';
+      case 'pause':
+        return 'paused';
+      case 'skipNext':
+        return 'skipped to next track';
+      case 'skipPrevious':
+        return 'went to previous track';
+      default:
+        return 'controlled';
     }
   }
 

@@ -73,33 +73,38 @@ class MediaNotificationListenerService : NotificationListenerService() {
         val meta = controller.metadata
         val state = controller.playbackState
 
-        // Handle case where music is stopped or null
         if (meta == null || state == null || state.state == PlaybackState.STATE_STOPPED || state.state == PlaybackState.STATE_NONE) {
             clearFirestore(uid)
             return
         }
 
-        val title = meta.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "Unknown"
-        val artist = meta.getString(MediaMetadata.METADATA_KEY_ARTIST)
-            ?: meta.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
-            ?: "Unknown"
+        val packageName = controller.packageName ?: ""
+        val safeMeta = meta.toSafeMap()
+        
+        val title = safeMeta["title"] as? String ?: "Unknown"
+        val artist = safeMeta["artist"] as? String ?: "Unknown"
+        
+        // Artwork extraction logic
+        var albumArt = safeMeta["artwork"] as? String
+        
+        // If metadata doesn't have it, try extraction from the notification (crucial for YouTube)
+        if (albumArt.isNullOrEmpty()) {
+            val notificationBitmap = getArtworkFromNotification(packageName)
+            if (notificationBitmap != null) {
+                albumArt = bitmapToBase64(notificationBitmap)
+            }
+        }
 
         val isPlaying = state.state == PlaybackState.STATE_PLAYING
-        val packageName = controller.packageName ?: ""
 
-        // Extract Album Art
-        val bitmapArt = meta.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-            ?: meta.getBitmap(MediaMetadata.METADATA_KEY_ART)
-
-        val albumArt = if (bitmapArt != null) bitmapToBase64(bitmapArt) else meta.getString(MediaMetadata.METADATA_KEY_ART_URI)
-
-        val data = mapOf(
+        val data = mutableMapOf(
             "title" to title,
             "artist" to artist,
             "albumArt" to albumArt,
             "isPlaying" to isPlaying,
             "isActive" to true,
             "packageName" to packageName,
+            "metadata" to safeMeta,
             "updatedAt" to FieldValue.serverTimestamp(),
             "source" to parseSource(packageName)
         )
@@ -123,20 +128,78 @@ class MediaNotificationListenerService : NotificationListenerService() {
             .set(data, SetOptions.merge())
     }
 
-    private fun bitmapToBase64(bitmap: Bitmap): String {
-        val stream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream)
-        val bytes = stream.toByteArray()
-        return Base64.encodeToString(bytes, Base64.NO_WRAP)
+    private fun getArtworkFromNotification(packageName: String): Bitmap? {
+        return try {
+            val notification = activeNotifications.firstOrNull { it.packageName == packageName }?.notification
+                ?: return null
+                
+            val extras = notification.extras
+            extras.getParcelable<Bitmap>(android.app.Notification.EXTRA_LARGE_ICON)
+                ?: extras.getParcelable<Bitmap>(android.app.Notification.EXTRA_PICTURE)
+                ?: extras.getParcelable<Bitmap>("android.picture")
+        } catch (e: Exception) {
+            null
+        }
     }
 
-    private fun parseSource(pkg: String): String {
-        return when {
-            pkg.contains("spotify") -> "Spotify"
-            pkg.contains("youtube.music") -> "YouTube Music"
-            pkg.contains("youtube") -> "YouTube"
-            pkg.contains("apple") -> "Apple Music"
-            else -> "Other"
-        }
+
+}
+
+fun parseSource(pkg: String): String {
+    return when {
+        pkg.contains("spotify") -> "Spotify"
+        pkg.contains("youtube.music") -> "YouTube Music"
+        pkg.contains("youtube") -> "YouTube"
+        pkg.contains("apple") -> "Apple Music"
+        else -> "Other"
+    }
+}
+fun MediaMetadata.toSafeMap(): Map<String, Any?> {
+    val map = mutableMapOf<String, Any?>()
+    val description = this.description
+
+    val title = description.title?.toString()
+        ?: getString(MediaMetadata.METADATA_KEY_TITLE)
+        ?: getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
+    map["title"] = title
+
+    val artist = description.subtitle?.toString()
+        ?: getString(MediaMetadata.METADATA_KEY_ARTIST)
+        ?: getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
+        ?: getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)
+        ?: getString(MediaMetadata.METADATA_KEY_AUTHOR)
+    map["artist"] = artist
+
+    map["album"] = getString(MediaMetadata.METADATA_KEY_ALBUM)
+        ?: description.description?.toString()
+        ?: getString(MediaMetadata.METADATA_KEY_DISPLAY_DESCRIPTION)
+
+    // Artwork check in metadata
+    val bitmap = description.iconBitmap
+        ?: getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+        ?: getBitmap(MediaMetadata.METADATA_KEY_ART)
+        ?: getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+
+    map["artwork"] = bitmapToBase64(bitmap)
+        ?: description.iconUri?.toString()
+        ?: getString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI)
+        ?: getString(MediaMetadata.METADATA_KEY_ART_URI)
+        ?: getString(MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI)
+
+    map["duration"] = getLong(MediaMetadata.METADATA_KEY_DURATION)
+    map["mediaId"] = description.mediaId ?: getString(MediaMetadata.METADATA_KEY_MEDIA_ID)
+
+    return map
+}
+
+fun bitmapToBase64(bitmap: Bitmap?): String? {
+    if (bitmap == null) return null
+    return try {
+        val stream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
+        val bytes = stream.toByteArray()
+        Base64.encodeToString(bytes, Base64.NO_WRAP)
+    } catch (e: Exception) {
+        null
     }
 }

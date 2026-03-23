@@ -138,6 +138,24 @@ class MediaService {
     }
   }
 
+  // --- Remote Control Methods ---
+
+  Future<void> play() async {
+    await _methodChannel.invokeMethod('play');
+  }
+
+  Future<void> pause() async {
+    await _methodChannel.invokeMethod('pause');
+  }
+
+  Future<void> skipNext() async {
+    await _methodChannel.invokeMethod('skipNext');
+  }
+
+  Future<void> skipPrevious() async {
+    await _methodChannel.invokeMethod('skipPrevious');
+  }
+
   Future<void> stopSharing() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
