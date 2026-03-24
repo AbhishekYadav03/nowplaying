@@ -82,147 +82,28 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
+
     if (uid == null) {
       return const Scaffold(body: Center(child: Text("Not logged in")));
     }
-
-    final feedAsync = ref.watch(friendsFeedProvider(uid));
-    final currentUserAsync = ref.watch(currentUserStreamProvider(uid));
-    final friendsStatusAsync = ref.watch(friendsStatusProvider(uid));
-    final currentUser = currentUserAsync.value;
-
+    print("WholeUI Rebuild");
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
           _buildAppBar(context),
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                currentUserAsync.when(
-                  data: (user) => _buildMyStatusBar(context, ref, uid, user),
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, _) => _buildMyStatusBar(context, ref, uid, null),
-                ),
-                _buildOnlineStatusSection(friendsStatusAsync),
-              ],
-            ),
-          ),
-          SliverToBoxAdapter(child: _buildSectionLabel('Friends Feed')),
-          feedAsync.when(
-            loading: () => SliverList(
-              delegate: SliverChildBuilderDelegate((_, i) => const NowPlayingCardSkeleton(), childCount: 3),
-            ),
-            error: (e, _) => SliverToBoxAdapter(child: _buildError(e.toString())),
-            data: (items) {
-              if (items.isEmpty) {
-                return SliverToBoxAdapter(child: _buildEmptyState());
-              }
-              return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (ctx, i) => NowPlayingCard(
-                    model: items[i],
-                    partnerId: currentUser?.partnerId,
-                    onReact: (emoji) => ref.read(firestoreServiceProvider).sendReaction(items[i].uid, emoji),
-                  ),
-                  childCount: items.length,
-                ),
-              );
-            },
-          ),
+
+          /// 👇 isolate rebuilds
+          SliverToBoxAdapter(child: _HeaderSection(uid: uid)),
+
+          SliverToBoxAdapter(child: HeaderLabel(label: 'Friends Feed')),
+
+          /// 👇 isolate feed
+          _FeedList(uid: uid),
+
           const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
       ),
-    );
-  }
-
-  Widget _buildOnlineStatusSection(AsyncValue<List<UserModel>> statusAsync) {
-    return statusAsync.when(
-      data: (friends) {
-        // Only show friends who are actually online
-        final onlineFriends = friends.where((f) => f.isOnline).toList();
-        if (onlineFriends.isEmpty) return const SizedBox.shrink();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionLabel('Online Now'),
-            SizedBox(
-              height: 90,
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                scrollDirection: Axis.horizontal,
-                itemCount: onlineFriends.length,
-                itemBuilder: (context, index) {
-                  final friend = onlineFriends[index];
-                  return Container(
-                    width: 70,
-                    margin: const EdgeInsets.only(right: 12),
-                    child: Column(
-                      children: [
-                        Stack(
-                          children: [
-                            Container(
-                              width: 56,
-                              height: 56,
-                              decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGradient),
-                              padding: const EdgeInsets.all(2),
-                              child: Container(
-                                decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.background),
-                                padding: const EdgeInsets.all(2),
-                                child: ClipOval(
-                                  child: friend.photoURL != null
-                                      ? CachedNetworkImage(imageUrl: friend.photoURL!, fit: BoxFit.cover)
-                                      : Center(
-                                          child: Text(
-                                            friend.displayName[0].toUpperCase(),
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w800,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                        ),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: 2,
-                              bottom: 2,
-                              child: Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: AppColors.online,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: AppColors.background, width: 2),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          friend.displayName.split(' ')[0],
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
     );
   }
 
@@ -244,39 +125,157 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
       ),
     );
   }
+}
 
-  Widget _buildMyStatusBar(BuildContext context, WidgetRef ref, String uid, UserModel? currentUser) {
-    final accessAsync = ref.watch(notificationAccessProvider);
-    return ref
-        .watch(currentMediaProvider)
-        .when(
+class HeaderLabel extends StatelessWidget {
+  const HeaderLabel({super.key, required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: AppColors.textTertiary,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderSection extends ConsumerWidget {
+  final String uid;
+  const _HeaderSection({required this.uid});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUserAsync = ref.watch(currentUserStreamProvider(uid));
+    print("_HeaderSection");
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        currentUserAsync.when(
+          data: (user) => _MyStatusBar(uid: uid, user: user),
           loading: () => const SizedBox.shrink(),
-          error: (_, _) => const SizedBox.shrink(),
-          data: (media) {
-            return accessAsync.when(
-              data: (hasAccess) {
-                if (!hasAccess) return _buildPermissionRequiredBanner(context);
-                if (media == null || !media.isActive) return _buildNotPlayingBanner(context);
-                final enrichedMedia = NowPlayingModel(
-                  uid: media.uid,
-                  title: media.title,
-                  artist: media.artist,
-                  albumArt: media.albumArt,
-                  source: media.source,
-                  updatedAt: media.updatedAt,
-                  isActive: media.isActive,
-                  isPlaying: media.isPlaying,
-                  packageName: media.packageName,
-                  userName: currentUser?.displayName ?? 'You',
-                  userPhoto: currentUser?.photoURL,
-                );
-                return NowPlayingCard(model: enrichedMedia, isOwn: true, canReact: false);
-              },
-              loading: () => const SizedBox.shrink(),
-              error: (_, _) => _buildPermissionRequiredBanner(context),
-            );
-          },
+          error: (_, _) => _MyStatusBar(uid: uid, user: null),
+        ),
+        _OnlineStatusSection(uid: uid),
+      ],
+    );
+  }
+}
+
+class _FeedList extends ConsumerWidget {
+  final String uid;
+  const _FeedList({required this.uid});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final feedAsync = ref.watch(friendsFeedProvider(uid));
+    final currentUser = ref.read(currentUserStreamProvider(uid)).value;
+
+    return feedAsync.when(
+      loading: () =>
+          SliverList(delegate: SliverChildBuilderDelegate((_, i) => const NowPlayingCardSkeleton(), childCount: 3)),
+      error: (e, _) => SliverToBoxAdapter(child: _buildError(e.toString())),
+      data: (items) {
+        if (items.isEmpty) {
+          return SliverToBoxAdapter(child: _buildEmptyState());
+        }
+
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (ctx, i) => NowPlayingCard(
+              model: items[i],
+              partnerId: currentUser?.partnerId,
+              onReact: (emoji) => ref.read(firestoreServiceProvider).sendReaction(items[i].uid, emoji),
+            ),
+            childCount: items.length,
+          ),
         );
+      },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+      child: Column(
+        children: [
+          ShaderMask(
+            shaderCallback: (b) => AppColors.brandGradient.createShader(b),
+            child: const Icon(Icons.group_add_rounded, size: 56, color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No friends yet',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Add friends to see what they\'re listening to in real time.',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ).animate().fadeIn(delay: 200.ms),
+    );
+  }
+
+  Widget _buildError(String msg) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Text('Error: $msg', style: const TextStyle(color: AppColors.error)),
+    );
+  }
+}
+
+class _MyStatusBar extends ConsumerWidget {
+  final String uid;
+  final UserModel? user;
+
+  const _MyStatusBar({required this.uid, required this.user});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accessAsync = ref.watch(notificationAccessProvider);
+
+    return accessAsync.when(
+      data: (hasAccess) {
+        if (!hasAccess) {
+          return _buildPermissionRequiredBanner(context);
+        }
+
+        final media = ref.watch(currentMediaProvider).value;
+
+        if (media == null || !media.isActive) {
+          return _buildNotPlayingBanner(context);
+        }
+
+        final enrichedMedia = NowPlayingModel(
+          uid: media.uid,
+          title: media.title,
+          artist: media.artist,
+          albumArt: media.albumArt,
+          source: media.source,
+          updatedAt: media.updatedAt,
+          isActive: media.isActive,
+          isPlaying: media.isPlaying,
+          packageName: media.packageName,
+          userName: user?.displayName ?? 'You',
+          userPhoto: user?.photoURL,
+        );
+
+        return NowPlayingCard(model: enrichedMedia, isOwn: true, canReact: false);
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => _buildPermissionRequiredBanner(context),
+    );
   }
 
   Widget _buildPermissionRequiredBanner(BuildContext context) {
@@ -361,51 +360,119 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
       ),
     ).animate().fadeIn(duration: 300.ms);
   }
+}
 
-  Widget _buildSectionLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: AppColors.textTertiary,
-          letterSpacing: 1.2,
-        ),
+class _OnlineStatusSection extends ConsumerWidget {
+  const _OnlineStatusSection({required this.uid});
+
+  final String uid;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final friendsStatusAsync = ref.watch(friendsStatusProvider(uid));
+
+    print("_OnlineStatusSection");
+    return friendsStatusAsync.when(
+      data: (friends) {
+        final onlineFriends = [
+          for (final f in friends)
+            if (f.isOnline) f,
+        ];
+
+        if (onlineFriends.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            HeaderLabel(label: 'Online Now'),
+            SizedBox(
+              height: 90,
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                itemCount: onlineFriends.length,
+                itemBuilder: (_, index) {
+                  return _OnlineFriendItem(friend: onlineFriends[index]);
+                },
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _OnlineFriendItem extends StatelessWidget {
+  final UserModel friend;
+
+  const _OnlineFriendItem({required this.friend});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 70,
+      margin: const EdgeInsets.only(right: 12),
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGradient),
+                padding: const EdgeInsets.all(2),
+                child: Container(
+                  decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.background),
+                  padding: const EdgeInsets.all(2),
+                  child: ClipOval(
+                    child: friend.photoURL != null
+                        ? CachedNetworkImage(imageUrl: friend.photoURL!, fit: BoxFit.cover)
+                        : Center(
+                            child: Text(
+                              friend.displayName[0].toUpperCase(),
+                              style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary),
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+              const _OnlineIndicator(),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            friend.displayName.split(' ')[0],
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
+}
 
-  Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
-      child: Column(
-        children: [
-          ShaderMask(
-            shaderCallback: (b) => AppColors.brandGradient.createShader(b),
-            child: const Icon(Icons.group_add_rounded, size: 56, color: Colors.white),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No friends yet',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Add friends to see what they\'re listening to in real time.',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ).animate().fadeIn(delay: 200.ms),
-    );
-  }
+class _OnlineIndicator extends StatelessWidget {
+  const _OnlineIndicator();
 
-  Widget _buildError(String msg) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Text('Error: $msg', style: const TextStyle(color: AppColors.error)),
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      right: 2,
+      bottom: 2,
+      child: Container(
+        width: 14,
+        height: 14,
+        decoration: BoxDecoration(
+          color: AppColors.online,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.background, width: 2),
+        ),
+      ),
     );
   }
 }

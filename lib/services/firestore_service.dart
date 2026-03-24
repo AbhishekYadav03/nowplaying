@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -136,10 +137,15 @@ class FirestoreService {
   }
 
   Stream<UserModel?> userStream(String uid) {
-    return _db.collection('users').doc(uid).snapshots().map((snap) {
-      if (!snap.exists) return null;
-      return UserModel.fromFirestore(snap);
-    });
+    return _db
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .map((snap) {
+          if (!snap.exists) return null;
+          return UserModel.fromFirestore(snap);
+        })
+        .distinct((prev, next) => prev == next);
   }
 
   Future<UserModel?> getUser(String uid) async {
@@ -221,6 +227,8 @@ class FirestoreService {
   }
 
   Stream<List<NowPlayingModel>> friendsFeedStream(String uid) {
+    final equality = const DeepCollectionEquality();
+
     return _db
         .collection('users')
         .doc(uid)
@@ -232,8 +240,10 @@ class FirestoreService {
         })
         .distinct((prev, next) => listEquals(prev, next))
         .asyncExpand((friends) {
-          if (friends.isEmpty) return Stream.value([]);
+          if (friends.isEmpty) return Stream.value(<NowPlayingModel>[]);
+
           final batch = friends.take(30).toList();
+
           return _db
               .collection('nowplaying')
               .where(FieldPath.documentId, whereIn: batch)
@@ -241,7 +251,7 @@ class FirestoreService {
               .orderBy('updatedAt', descending: true)
               .snapshots()
               .asyncMap((snap) async {
-                if (snap.docs.isEmpty) return [];
+                if (snap.docs.isEmpty) return <NowPlayingModel>[];
                 final uids = snap.docs.map((d) => d.id).toList();
                 final userDocs = await _db.collection('users').where(FieldPath.documentId, whereIn: uids).get();
                 final userMap = {for (final u in userDocs.docs) u.id: u.data()};
@@ -249,7 +259,8 @@ class FirestoreService {
                   final u = userMap[d.id];
                   return NowPlayingModel.fromFirestore(d, userName: u?['displayName'], userPhoto: u?['photoURL']);
                 }).toList();
-              });
+              })
+              .distinct((prev, next) => equality.equals(prev, next));
         });
   }
 

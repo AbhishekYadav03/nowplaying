@@ -5,8 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nowplaying/app/theme.dart';
-
-import 'package:nowplaying/services/firestore_service.dart' show firestoreServiceProvider;
+import 'package:nowplaying/services/firestore_service.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   final Widget child;
@@ -20,24 +19,25 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
   Timer? _presenceTimer;
   bool isInBackground = false;
   String? uid;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    uid = FirebaseAuth.instance.currentUser?.uid;
     _startPresenceTimer();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    uid = FirebaseAuth.instance.currentUser?.uid;
     _presenceTimer?.cancel();
     super.dispose();
   }
 
   void _startPresenceTimer() {
     _presenceTimer?.cancel();
-    _presenceTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+    _presenceTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
       _updateLastSeen();
     });
     _updateLastSeen();

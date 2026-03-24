@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:nowplaying/app/theme.dart';
+import 'package:nowplaying/features/feed/feed_screen.dart';
 import 'package:nowplaying/services/firestore_service.dart';
 import 'package:nowplaying/models/user_model.dart';
 
@@ -58,6 +59,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     setState(() => _addLoading = true);
     try {
       await ref.read(firestoreServiceProvider).addFriend(myUid, friendUid);
+      ref.invalidate(friendsStatusProvider(myUid));
+      ref.invalidate(friendsFeedProvider(myUid));
       _searchCtrl.clear();
       setState(() {
         _searchResult = null;
@@ -77,6 +80,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     try {
       await ref.read(firestoreServiceProvider).removeFriend(myUid, friendUid);
       ref.invalidate(friendsStatusProvider(myUid));
+      ref.invalidate(friendsFeedProvider(myUid));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
