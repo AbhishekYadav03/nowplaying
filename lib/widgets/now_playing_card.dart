@@ -308,10 +308,10 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
                             final mediaService = ref.read(mediaServiceProvider);
                             return MediaControls(
                               isPlaying: widget.model.isPlaying,
-                              onPrevious: () => mediaService.skipPrevious(),
-                              onPause: () => mediaService.pause(),
-                              onNext: () => mediaService,
-                              onPlay: () => mediaService.play(),
+                              onPrevious: mediaService.skipPrevious,
+                              onPause: mediaService.pause,
+                              onNext: mediaService.skipNext,
+                              onPlay: mediaService.play,
                             );
                           },
                         ),

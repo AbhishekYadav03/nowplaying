@@ -1,7 +1,10 @@
 package com.heartbeat.musk
 
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.media.MediaMetadata
 import android.media.session.MediaController
@@ -21,9 +24,38 @@ class MediaNotificationListenerService : NotificationListenerService() {
     private lateinit var sessionManager: MediaSessionManager
     private var activeController: MediaController? = null
 
+    companion object {
+        const val ACTION_MEDIA_CONTROL = "com.nowplaying.MEDIA_CONTROL"
+        const val EXTRA_COMMAND = "command"
+    }
+
+    private val controlReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val command = intent?.getStringExtra(EXTRA_COMMAND)
+            Log.d("SoftSync", "Received background command: $command")
+            
+            when (command) {
+                "play" -> activeController?.transportControls?.play()
+                "pause" -> activeController?.transportControls?.pause()
+                "skipNext" -> activeController?.transportControls?.skipToNext()
+                "skipPrevious" -> activeController?.transportControls?.skipToPrevious()
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         sessionManager = getSystemService(MEDIA_SESSION_SERVICE) as MediaSessionManager
+        
+        val filter = IntentFilter(ACTION_MEDIA_CONTROL)
+        registerReceiver(controlReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(controlReceiver)
+        } catch (e: Exception) {}
     }
 
     override fun onListenerConnected() {
@@ -79,18 +111,14 @@ class MediaNotificationListenerService : NotificationListenerService() {
         }
 
         val packageName = controller.packageName ?: ""
-
         val safeMeta = meta.toSafeMap()
         
         val title = safeMeta["title"] as? String ?: "Unknown"
         val artist = safeMeta["artist"] as? String ?: "Unknown"
         
-        // Artwork extraction logic
         var albumArt = safeMeta["artwork"] as? String
         val duration = safeMeta["duration"]
 
-
-        // If metadata doesn't have it, try extraction from the notification (crucial for YouTube)
         if (albumArt.isNullOrEmpty()) {
             val notificationBitmap = getArtworkFromNotification(packageName)
             if (notificationBitmap != null) {
@@ -145,8 +173,6 @@ class MediaNotificationListenerService : NotificationListenerService() {
             null
         }
     }
-
-
 }
 
 fun parseSource(pkg: String): String {
@@ -158,6 +184,7 @@ fun parseSource(pkg: String): String {
         else -> "Other"
     }
 }
+
 fun MediaMetadata.toSafeMap(): Map<String, Any?> {
     val map = mutableMapOf<String, Any?>()
     val description = this.description
@@ -178,7 +205,6 @@ fun MediaMetadata.toSafeMap(): Map<String, Any?> {
         ?: description.description?.toString()
         ?: getString(MediaMetadata.METADATA_KEY_DISPLAY_DESCRIPTION)
 
-    // Artwork check in metadata
     val bitmap = description.iconBitmap
         ?: getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
         ?: getBitmap(MediaMetadata.METADATA_KEY_ART)
@@ -206,13 +232,4 @@ fun bitmapToBase64(bitmap: Bitmap?): String? {
     } catch (e: Exception) {
         null
     }
-}
-fun isYouTube(packageName: String?): Boolean {
-    return packageName == "com.google.android.youtube"
-}
-fun extractYoutubeThumbnail(meta: MediaMetadata): String? {
-    val mediaId = meta.getString(MediaMetadata.METADATA_KEY_MEDIA_ID) ?: return null
-
-    // if mediaId contains videoId
-    return "https://img.youtube.com/vi/$mediaId/hqdefault.jpg"
 }
