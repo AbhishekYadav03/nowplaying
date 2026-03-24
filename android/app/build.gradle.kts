@@ -75,6 +75,7 @@ dependencies {
     // Use the main artifacts (they now include Kotlin extensions)
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-messaging:23.4.1")
 }
 
 flutter {
