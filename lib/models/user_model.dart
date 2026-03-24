@@ -28,7 +28,7 @@ class UserModel {
   bool get isOnline {
     if (lastSeen == null) return false;
     // Consider online if seen in the last 2 minutes
-    return DateTime.now().difference(lastSeen!).inMinutes < 2;
+    return DateTime.now().difference(lastSeen!).inSeconds < 70;
   }
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {

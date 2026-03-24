@@ -95,6 +95,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   Future<void> _setPartner(String myUid, String friendUid, String name) async {
     try {
       await ref.read(firestoreServiceProvider).setPartner(myUid, friendUid);
+      ref.invalidate(friendsStatusProvider(myUid));
+      ref.invalidate(friendsFeedProvider(myUid));
       if (mounted) {
         ScaffoldMessenger.of(
           context,
