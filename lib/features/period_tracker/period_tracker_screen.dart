@@ -334,12 +334,15 @@ class _PeriodTrackerScreenState extends ConsumerState<PeriodTrackerScreen> {
     final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
     final firstDayOfWeek = DateTime(_selectedMonth.year, _selectedMonth.month, 1).weekday % 7;
 
-    final predictedDays = PeriodLogic.getPredictedPeriodDays(settings, _selectedMonth);
     final info = PeriodLogic.calculateCycleInfo(settings);
+    final ovulationDate  = info['ovulationDate']  as DateTime?;
+    final fertileStart   = info['fertileStart']   as DateTime?;
+    final fertileEnd     = info['fertileEnd']     as DateTime?;
 
-    final ovulationDate = info['ovulationDate'] as DateTime?;
-    final fertileStart = info['fertileStart'] as DateTime?;
-    final fertileEnd = info['fertileEnd'] as DateTime?;
+    final predictedDays  = PeriodLogic.getPredictedPeriodDays(settings, _selectedMonth);
+    final follicularDays = PeriodLogic.getFollicularDays(settings, _selectedMonth);
+    final lutealDays     = PeriodLogic.getLutealDays(settings, _selectedMonth);
+
     final today = DateTime.now();
 
     return GridView.builder(
@@ -352,62 +355,57 @@ class _PeriodTrackerScreenState extends ConsumerState<PeriodTrackerScreen> {
       ),
       itemCount: daysInMonth + firstDayOfWeek,
       itemBuilder: (context, index) {
-        if (index < firstDayOfWeek) {
-          return const SizedBox.shrink();
-        }
+        if (index < firstDayOfWeek) return const SizedBox.shrink();
 
-        final day = index - firstDayOfWeek + 1;
+        final day  = index - firstDayOfWeek + 1;
         final date = DateTime(_selectedMonth.year, _selectedMonth.month, day);
-        final isToday = DateUtils.isSameDay(date, today);
 
-        // Map conditions to the correct active sub-states
-        final isPredicted = predictedDays.any((d) => DateUtils.isSameDay(d, date));
-        final isOvulation = ovulationDate != null && DateUtils.isSameDay(ovulationDate, date);
-        final isFertile = fertileStart != null && fertileEnd != null && !date.isBefore(fertileStart) && !date.isAfter(fertileEnd);
+        final isToday      = DateUtils.isSameDay(date, today);
+        final isPredicted  = predictedDays.any((d)  => DateUtils.isSameDay(d, date));
+        final isOvulation  = ovulationDate != null   && DateUtils.isSameDay(ovulationDate, date);
+        final isFertile    = fertileStart != null
+            && fertileEnd != null
+            && !date.isBefore(fertileStart)
+            && !date.isAfter(fertileEnd)
+            && !isOvulation;   // ovulation day takes priority
+        final isFollicular = follicularDays.any((d) => DateUtils.isSameDay(d, date));
+        final isLuteal     = lutealDays.any((d)     => DateUtils.isSameDay(d, date));
 
-        // Use standard logic or extensions to figure out which state layer applies to this single day
-        // Assuming your standard pipeline calculates matching window logic for follicular/luteal steps:
-        final currentActiveDayPhase = CyclePhaseStyle.fromDayState(
-          isPredicted: isPredicted,
-          isOvulation: isOvulation,
-          isFertile: isFertile,
-          isFollicular: false, // Provide true/false parameters according to your model logic if necessary
-          isLuteal: false,
+        final phase = CyclePhaseStyle.fromDayState(
+          isPredicted:  isPredicted,
+          isOvulation:  isOvulation,
+          isFertile:    isFertile,
+          isFollicular: isFollicular,
+          isLuteal:     isLuteal,
         );
 
-        // Visual Layout customization based directly on the derived phase rules
-        Color? cellBackground;
-        Color borderCellColor = Colors.transparent;
-        double borderWidth = 1.0;
-        Color textColor = AppColors.textSecondary;
+        Color? bg         = phase?.backgroundColor;
+        Color  border     = phase?.borderColor ?? Colors.transparent;
+        double borderW    = phase == CyclePhase.ovulation ? 1.8 : 1.0;
+        Color  textCol    = phase?.color ?? AppColors.textSecondary;
+        FontWeight weight = (isToday || isOvulation) ? FontWeight.w600 : FontWeight.normal;
 
-        if (currentActiveDayPhase != null) {
-          cellBackground = currentActiveDayPhase.backgroundColor;
-          borderCellColor = currentActiveDayPhase.borderColor;
-          if (currentActiveDayPhase == CyclePhase.ovulation) {
-            borderWidth = 1.5;
-            textColor = currentActiveDayPhase.color;
-          }
-        }
-
+        // Today always wins visually
         if (isToday) {
-          cellBackground = AppColors.primary.withValues(alpha: 0.15);
-          borderCellColor = AppColors.primary.withValues(alpha: 0.5);
-          textColor = AppColors.textPrimary;
+          bg      = AppColors.primary.withValues(alpha: 0.15);
+          border  = AppColors.primary.withValues(alpha: 0.5);
+          textCol = AppColors.textPrimary;
+          weight  = FontWeight.w600;
         }
 
         return Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: cellBackground,
-            border: Border.all(color: borderCellColor, width: borderWidth),
+            color: bg,
+            border: Border.all(color: border, width: borderW),
           ),
           alignment: Alignment.center,
           child: Text(
             day.toString(),
             style: TextStyle(
-              color: textColor,
-              fontWeight: (isToday || isOvulation) ? FontWeight.bold : FontWeight.normal,
+              fontSize: 13,
+              color: textCol,
+              fontWeight: weight,
             ),
           ),
         );
