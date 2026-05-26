@@ -28,39 +28,59 @@ class DatesScreen extends ConsumerWidget {
         title: Text('${friend.displayName}\'s Dates'),
         actions: [IconButton(onPressed: () => _openAddDate(context), icon: const Icon(Icons.add_rounded))],
       ),
-      body: datesAsync.when(
-        data: (dates) {
-          if (dates.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.calendar_today_outlined, size: 64, color: AppColors.textTertiary.withOpacity(0.5)),
-                  const SizedBox(height: 16),
-                  const Text('No special dates yet', style: TextStyle(color: AppColors.textSecondary, fontSize: 16)),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () => _openAddDate(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Milestone'),
-                    style: ElevatedButton.styleFrom(minimumSize: const Size(200, 50)),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            itemCount: dates.length,
-            itemBuilder: (context, index) {
-              final date = dates[index];
-              return _DateCard(date: date, friend: friend);
-            },
-          );
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(datesStreamProvider((uid, friend.uid)));
+          // Wait for the next value to be emitted to ensure the spinner stays for a bit
+          await ref.read(datesStreamProvider((uid, friend.uid)).future);
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        child: datesAsync.when(
+          data: (dates) {
+            if (dates.isEmpty) {
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Container(
+                  height: MediaQuery.of(context).size.height * 0.7,
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.calendar_today_outlined, size: 64, color: AppColors.textTertiary.withOpacity(0.5)),
+                      const SizedBox(height: 16),
+                      const Text('No special dates yet', style: TextStyle(color: AppColors.textSecondary, fontSize: 16)),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () => _openAddDate(context),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Milestone'),
+                        style: ElevatedButton.styleFrom(minimumSize: const Size(200, 50)),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              itemCount: dates.length,
+              itemBuilder: (context, index) {
+                final date = dates[index];
+                return _DateCard(date: date, friend: friend);
+              },
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              alignment: Alignment.center,
+              child: Text('Error: $e'),
+            ),
+          ),
+        ),
       ),
       floatingActionButton: datesAsync.maybeWhen(
         data: (dates) => dates.isNotEmpty

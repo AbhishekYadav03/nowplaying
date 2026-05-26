@@ -9,9 +9,18 @@ import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../models/now_playing_model.dart';
 import '../models/relationship_date_model.dart';
+import '../models/period_tracker_model.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService();
+});
+
+final userStreamProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
+  return ref.watch(firestoreServiceProvider).userStream(uid);
+});
+
+final friendsStatusStreamProvider = StreamProvider.family<List<UserModel>, String>((ref, uid) {
+  return ref.watch(firestoreServiceProvider).friendsStatusStream(uid);
 });
 
 class FirestoreService {
@@ -60,6 +69,10 @@ class FirestoreService {
   Future<void> setPartner(String myUid, String partnerUid) async {
     await _db.collection('users').doc(myUid).update({'partnerId': partnerUid});
     await _db.collection('users').doc(partnerUid).update({'partnerId': myUid});
+  }
+
+  Future<void> updateGender(String uid, String gender) async {
+    await _db.collection('users').doc(uid).update({'gender': gender});
   }
 
   Future<String?> _getGasUrl() async {
@@ -230,6 +243,47 @@ class FirestoreService {
 
   Future<void> deleteDate(String uid, String dateId) async {
     await _db.collection('users').doc(uid).collection('dates').doc(dateId).delete();
+  }
+
+  // ── Period Tracker ───────────────────────────────────────────────────────
+
+  Stream<PeriodTrackerModel?> periodTrackerStream(String uid) {
+    return _db.collection('users').doc(uid).collection('period_tracker').doc('settings').snapshots().map((snap) {
+      if (!snap.exists) return null;
+      return PeriodTrackerModel.fromFirestore(snap);
+    });
+  }
+
+  Future<void> updatePeriodTracker(String uid, PeriodTrackerModel model) async {
+    await _db.collection('users').doc(uid).collection('period_tracker').doc('settings').set(model.toMap());
+  }
+
+  Stream<List<PeriodLogModel>> periodLogsStream(String uid) {
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('period_logs')
+        .orderBy('startDate', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map(PeriodLogModel.fromFirestore).toList());
+  }
+
+  Future<void> addPeriodLog(String uid, PeriodLogModel log) async {
+    await _db.collection('users').doc(uid).collection('period_logs').add(log.toMap());
+    // Also update settings with the latest log if it's the most recent one
+    final trackerDoc = await _db.collection('users').doc(uid).collection('period_tracker').doc('settings').get();
+    final currentTracker = trackerDoc.exists ? PeriodTrackerModel.fromFirestore(trackerDoc) : const PeriodTrackerModel();
+
+    if (currentTracker.lastPeriodStart == null || log.startDate.isAfter(currentTracker.lastPeriodStart!)) {
+      await updatePeriodTracker(
+        uid,
+        currentTracker.copyWith(lastPeriodStart: log.startDate, lastPeriodEnd: log.endDate),
+      );
+    }
+  }
+
+  Future<void> deletePeriodLog(String uid, String logId) async {
+    await _db.collection('users').doc(uid).collection('period_logs').doc(logId).delete();
   }
 
   // ── Now Playing ───────────────────────────────────────────────────────────

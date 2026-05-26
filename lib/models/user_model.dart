@@ -11,6 +11,7 @@ class UserModel {
   final DateTime? lastSeen;
   final String? appVersion;
   final String? partnerId;
+  final String? gender;
 
   const UserModel({
     required this.uid,
@@ -23,6 +24,7 @@ class UserModel {
     this.lastSeen,
     this.appVersion,
     this.partnerId,
+    this.gender,
   });
 
   bool get isOnline {
@@ -30,6 +32,8 @@ class UserModel {
     // Consider online if seen in the last 2 minutes
     return DateTime.now().difference(lastSeen!).inSeconds < 70;
   }
+
+  bool get isFemale => gender?.toLowerCase() == 'female';
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -44,6 +48,7 @@ class UserModel {
       lastSeen: (data['lastSeen'] as Timestamp?)?.toDate(),
       appVersion: data['appVersion'],
       partnerId: data['partnerId'],
+      gender: data['gender'],
     );
   }
 
@@ -58,6 +63,7 @@ class UserModel {
     'lastSeen': lastSeen != null ? Timestamp.fromDate(lastSeen!) : FieldValue.serverTimestamp(),
     'appVersion': appVersion,
     'partnerId': partnerId,
+    'gender': gender,
   };
 
   UserModel copyWith({
@@ -69,6 +75,7 @@ class UserModel {
     DateTime? lastSeen,
     String? appVersion,
     String? partnerId,
+    String? gender,
   }) {
     return UserModel(
       uid: uid,
@@ -81,6 +88,7 @@ class UserModel {
       lastSeen: lastSeen ?? this.lastSeen,
       appVersion: appVersion ?? this.appVersion,
       partnerId: partnerId ?? this.partnerId,
+      gender: gender ?? this.gender,
     );
   }
 }

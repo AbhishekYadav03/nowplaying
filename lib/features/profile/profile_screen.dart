@@ -9,6 +9,7 @@ import 'package:nowplaying/models/user_model.dart';
 import 'package:nowplaying/app/theme.dart';
 import 'package:nowplaying/services/firestore_service.dart';
 import 'package:nowplaying/services/auth_service.dart';
+import '../period_tracker/period_tracker_screen.dart';
 
 final userProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
   return ref.read(firestoreServiceProvider).userStream(uid);
@@ -51,6 +52,54 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
+  }
+
+  void _showGenderPicker(String uid, String? currentGender) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            const Text('Select Gender', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.male_rounded, color: Colors.blue),
+              title: const Text('Male'),
+              trailing: currentGender == 'Male' ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
+              onTap: () async {
+                await ref.read(firestoreServiceProvider).updateGender(uid, 'Male');
+                if (mounted) Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.female_rounded, color: Colors.pink),
+              title: const Text('Female'),
+              trailing: currentGender == 'Female' ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
+              onTap: () async {
+                await ref.read(firestoreServiceProvider).updateGender(uid, 'Female');
+                if (mounted) Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.transgender_rounded, color: Colors.grey),
+              title: const Text('Other / Prefer not to say'),
+              trailing: (currentGender != 'Male' && currentGender != 'Female' && currentGender != null)
+                  ? const Icon(Icons.check_circle, color: AppColors.primary)
+                  : null,
+              onTap: () async {
+                await ref.read(firestoreServiceProvider).updateGender(uid, 'Other');
+                if (mounted) Navigator.pop(context);
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -150,6 +199,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
               const SizedBox(height: 32),
 
+              if (user.isFemale) ...[
+                _buildSection(
+                  title: 'TRACKING',
+                  child: Column(
+                    children: [
+                      _SettingsTile(
+                        icon: Icons.water_drop_rounded,
+                        label: 'My Period Tracker',
+                        color: AppColors.pink,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PeriodTrackerScreen(userId: user.uid, userName: user.displayName),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               // Sharing toggle
               _buildSection(
                 title: 'PRIVACY',
@@ -163,6 +236,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: 'ACCOUNT',
                 child: Column(
                   children: [
+                    _SettingsTile(
+                      icon: Icons.person_outline_rounded,
+                      label: 'Gender',
+                      subtitle: user.gender ?? 'Not set',
+                      onTap: () => _showGenderPicker(uid, user.gender),
+                    ),
+                    const Divider(height: 1, color: AppColors.border),
                     packageInfoAsync.when(
                       data: (info) => _SettingsTile(
                         icon: Icons.info_outline_rounded,

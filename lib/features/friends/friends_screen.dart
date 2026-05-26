@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../app/theme.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
+import '../period_tracker/period_tracker_screen.dart';
 import 'dates_screen.dart';
 
 class FriendsScreen extends ConsumerStatefulWidget {
@@ -463,6 +464,22 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => DatesScreen(friend: friend)));
               },
             ),
+            if (isPartner && friend.isFemale)
+              ListTile(
+                leading: const Icon(Icons.water_drop_rounded, color: AppColors.pink),
+                title: const Text(
+                  'Period Tracker',
+                  style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                  'Track cycles and fertility',
+                  style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => PeriodTrackerScreen(userId: friend.uid, userName: friend.displayName)));
+                },
+              ),
             ListTile(
               leading: Icon(isPartner ? Icons.favorite_border_rounded : Icons.favorite_rounded, color: AppColors.pink),
               title: Text(
@@ -550,12 +567,3 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     return 'Active ${diff.inDays}d ago';
   }
 }
-
-// Stream providers for friends_screen
-final friendsStatusStreamProvider = StreamProvider.family<List<UserModel>, String>((ref, uid) {
-  return ref.watch(firestoreServiceProvider).friendsStatusStream(uid);
-});
-
-final userStreamProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
-  return ref.watch(firestoreServiceProvider).userStream(uid);
-});
