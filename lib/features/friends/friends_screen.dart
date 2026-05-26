@@ -1,21 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:nowplaying/app/theme.dart';
-import 'package:nowplaying/features/feed/feed_screen.dart';
-import 'package:nowplaying/services/firestore_service.dart';
-import 'package:nowplaying/models/user_model.dart';
-
-final userProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
-  return ref.watch(firestoreServiceProvider).userStream(uid);
-});
-
-final friendsStatusProvider = StreamProvider.family<List<UserModel>, String>((ref, uid) {
-  return ref.watch(firestoreServiceProvider).friendsStatusStream(uid);
-});
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../app/theme.dart';
+import '../../models/user_model.dart';
+import '../../services/firestore_service.dart';
+import 'dates_screen.dart';
 
 class FriendsScreen extends ConsumerStatefulWidget {
   const FriendsScreen({super.key});
@@ -25,29 +17,38 @@ class FriendsScreen extends ConsumerStatefulWidget {
 }
 
 class _FriendsScreenState extends ConsumerState<FriendsScreen> {
-  final _searchCtrl = TextEditingController();
+  final _searchController = TextEditingController();
   bool _searching = false;
   UserModel? _searchResult;
   String? _searchError;
   bool _addLoading = false;
   final Set<String> _removingUids = {};
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _search() async {
-    final code = _searchCtrl.text.trim();
+    final code = _searchController.text.trim().toUpperCase();
     if (code.isEmpty) return;
+
     setState(() {
       _searching = true;
       _searchResult = null;
       _searchError = null;
     });
+
     try {
       final user = await ref.read(firestoreServiceProvider).findUserByCode(code);
-      setState(() {
-        _searchResult = user;
-        if (user == null) _searchError = 'No user found with that code.';
-      });
+      if (user == null) {
+        setState(() => _searchError = 'User not found');
+      } else {
+        setState(() => _searchResult = user);
+      }
     } catch (e) {
-      setState(() => _searchError = e.toString());
+      setState(() => _searchError = 'Error searching user');
     } finally {
       setState(() => _searching = false);
     }
@@ -56,22 +57,27 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   Future<void> _addFriend(String friendUid) async {
     final myUid = FirebaseAuth.instance.currentUser?.uid;
     if (myUid == null) return;
+
     setState(() => _addLoading = true);
     try {
       await ref.read(firestoreServiceProvider).addFriend(myUid, friendUid);
-      ref.invalidate(friendsStatusProvider(myUid));
-      ref.invalidate(friendsFeedProvider(myUid));
-      _searchCtrl.clear();
       setState(() {
         _searchResult = null;
+        _searchController.clear();
       });
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Friend added!'), backgroundColor: AppColors.online));
+        ).showSnackBar(const SnackBar(content: Text('Friend added!'), backgroundColor: AppColors.primary));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error adding friend: $e'), backgroundColor: AppColors.error));
       }
     } finally {
-      if (mounted) setState(() => _addLoading = false);
+      setState(() => _addLoading = false);
     }
   }
 
@@ -79,28 +85,17 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     setState(() => _removingUids.add(friendUid));
     try {
       await ref.read(firestoreServiceProvider).removeFriend(myUid, friendUid);
-      ref.invalidate(friendsStatusProvider(myUid));
-      ref.invalidate(friendsFeedProvider(myUid));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
-      }
     } finally {
-      if (mounted) setState(() => _removingUids.remove(friendUid));
+      setState(() => _removingUids.remove(friendUid));
     }
   }
 
-  Future<void> _setPartner(String myUid, String friendUid, String name) async {
+  Future<void> _setPartner(String myUid, String partnerUid, String name) async {
     try {
-      await ref.read(firestoreServiceProvider).setPartner(myUid, friendUid);
-      ref.invalidate(friendsStatusProvider(myUid));
-      ref.invalidate(friendsFeedProvider(myUid));
+      await ref.read(firestoreServiceProvider).setPartner(myUid, partnerUid);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$name is now your partner ❤️'), backgroundColor: AppColors.primary));
+        final message = partnerUid.isEmpty ? 'Partner removed' : '$name is now your partner';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: AppColors.pink));
       }
     } catch (e) {
       if (mounted) {
@@ -113,32 +108,32 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      return const Scaffold(body: Center(child: Text("User not logged in")));
-    }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const SizedBox.shrink();
 
-    final friendsAsync = ref.watch(friendsStatusProvider(uid));
-    final currentUserAsync = ref.watch(userProvider(uid));
+    final uid = user.uid;
+    final friendsAsync = ref.watch(friendsStatusStreamProvider(uid));
+    final currentUserAsync = ref.watch(userStreamProvider(uid));
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Friends'),
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 0.5, color: AppColors.border),
-        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+            onPressed: () {
+              // TODO: QR Scanner
+            },
+          ),
+        ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         children: [
           _buildInviteCard(uid),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           const Text(
-            'Add Friend by Invite code',
+            'Add Friend',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -146,16 +141,15 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               letterSpacing: 1.2,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: TextField(
-                  controller: _searchCtrl,
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  controller: _searchController,
                   decoration: const InputDecoration(
-                    hintText: 'Enter invite code...',
-                    prefixIcon: Icon(Icons.search_rounded, color: AppColors.textTertiary, size: 20),
+                    hintText: 'Enter Friend Code',
+                    prefixIcon: Icon(Icons.search_rounded, size: 20),
                   ),
                   onSubmitted: (_) => _search(),
                 ),
@@ -455,6 +449,21 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             ),
             const SizedBox(height: 16),
             ListTile(
+              leading: const Icon(Icons.calendar_month_rounded, color: AppColors.primary),
+              title: const Text(
+                'Dates',
+                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'View relationship milestones',
+                style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => DatesScreen(friend: friend)));
+              },
+            ),
+            ListTile(
               leading: Icon(isPartner ? Icons.favorite_border_rounded : Icons.favorite_rounded, color: AppColors.pink),
               title: Text(
                 isPartner ? 'Remove as Partner' : 'Set as Partner',
@@ -484,7 +493,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
 
                 final confirmed = await showDialog<bool>(
                   context: context,
-                  barrierDismissible: false, // safer for destructive action
+                  barrierDismissible: false,
                   builder: (dialogContext) {
                     return AlertDialog(
                       backgroundColor: AppColors.surface,
@@ -541,3 +550,12 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     return 'Active ${diff.inDays}d ago';
   }
 }
+
+// Stream providers for friends_screen
+final friendsStatusStreamProvider = StreamProvider.family<List<UserModel>, String>((ref, uid) {
+  return ref.watch(firestoreServiceProvider).friendsStatusStream(uid);
+});
+
+final userStreamProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
+  return ref.watch(firestoreServiceProvider).userStream(uid);
+});

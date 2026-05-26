@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:nowplaying/models/now_playing_model.dart';
 import 'package:nowplaying/app/theme.dart';
 import 'package:nowplaying/services/firestore_service.dart';
@@ -15,10 +15,6 @@ import '../friends/friends_screen.dart';
 
 final friendsFeedProvider = StreamProvider.family<List<NowPlayingModel>, String>((ref, uid) {
   return ref.read(firestoreServiceProvider).friendsFeedStream(uid);
-});
-
-final currentUserStreamProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
-  return ref.read(firestoreServiceProvider).userStream(uid);
 });
 
 final notificationAccessProvider = FutureProvider<bool>((ref) async {
@@ -86,7 +82,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
     if (uid == null) {
       return const Scaffold(body: Center(child: Text("Not logged in")));
     }
-    print("WholeUI Rebuild");
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
@@ -154,8 +149,7 @@ class _HeaderSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUserAsync = ref.watch(currentUserStreamProvider(uid));
-    print("_HeaderSection");
+    final currentUserAsync = ref.watch(userStreamProvider(uid));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -177,7 +171,7 @@ class _FeedList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feedAsync = ref.watch(friendsFeedProvider(uid));
-    final currentUser = ref.read(currentUserStreamProvider(uid)).value;
+    final currentUser = ref.read(userStreamProvider(uid)).value;
 
     return feedAsync.when(
       loading: () =>
@@ -285,9 +279,9 @@ class _MyStatusBar extends ConsumerWidget {
         margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: AppColors.error.withOpacity(0.05),
+          color: AppColors.error.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.error.withOpacity(0.2), width: 0.5),
+          border: Border.all(color: AppColors.error.withValues(alpha: 0.2), width: 0.5),
         ),
         child: Row(
           children: [
@@ -295,7 +289,7 @@ class _MyStatusBar extends ConsumerWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
+                color: AppColors.error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.notifications_paused_rounded, color: AppColors.error, size: 18),
@@ -368,9 +362,8 @@ class _OnlineStatusSection extends ConsumerWidget {
   final String uid;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final friendsStatusAsync = ref.watch(friendsStatusProvider(uid));
+    final friendsStatusAsync = ref.watch(friendsStatusStreamProvider(uid));
 
-    print("_OnlineStatusSection");
     return friendsStatusAsync.when(
       data: (friends) {
         final onlineFriends = [
@@ -423,7 +416,7 @@ class _OnlineFriendItem extends StatelessWidget {
               Container(
                 width: 56,
                 height: 56,
-                decoration: BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGradient),
+                decoration: const BoxDecoration(shape: BoxShape.circle, gradient: AppColors.brandGradient),
                 padding: const EdgeInsets.all(2),
                 child: Container(
                   decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.background),

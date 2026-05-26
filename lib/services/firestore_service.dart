@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../models/now_playing_model.dart';
+import '../models/relationship_date_model.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService();
@@ -204,6 +205,31 @@ class FirestoreService {
     final snap = await _db.collection('users').where('friendCode', isEqualTo: code).limit(1).get();
     if (snap.docs.isEmpty) return null;
     return UserModel.fromFirestore(snap.docs.first);
+  }
+
+  // ── Relationship Dates ───────────────────────────────────────────────────
+
+  Stream<List<RelationshipDateModel>> datesStream(String uid, String friendId) {
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('dates')
+        .where('friendId', isEqualTo: friendId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map(RelationshipDateModel.fromFirestore).toList());
+  }
+
+  Future<void> addDate(String uid, RelationshipDateModel date) async {
+    await _db.collection('users').doc(uid).collection('dates').add(date.toMap());
+  }
+
+  Future<void> updateDate(String uid, RelationshipDateModel date) async {
+    await _db.collection('users').doc(uid).collection('dates').doc(date.id).update(date.toMap());
+  }
+
+  Future<void> deleteDate(String uid, String dateId) async {
+    await _db.collection('users').doc(uid).collection('dates').doc(dateId).delete();
   }
 
   // ── Now Playing ───────────────────────────────────────────────────────────
