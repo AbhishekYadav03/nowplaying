@@ -79,8 +79,8 @@ class _PeriodTrackerScreenState extends ConsumerState<PeriodTrackerScreen> {
                       _buildPhasesSection(info),
                       const SizedBox(height: 28),
                       _buildInsightsSection(logsAsync.value ?? []),
-                      if(!_isOwnTracker&& currentPhase!=null)...[
-                        CycleMoodSection(phase: currentPhase)
+                      if(currentPhase!=null)...[
+                        CycleMoodSection(phase: currentPhase,isOwner: _isOwnTracker)
                       ]
                     ],
                   ],
