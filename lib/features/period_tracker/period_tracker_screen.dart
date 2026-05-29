@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:nowplaying/widgets/cycle_mood_section.dart';
 import '../../app/theme.dart';
 import '../../models/period_tracker_model.dart';
 import '../../services/firestore_service.dart';
@@ -63,6 +63,7 @@ class _PeriodTrackerScreenState extends ConsumerState<PeriodTrackerScreen> {
               data: (settings) {
                 final info = PeriodLogic.calculateCycleInfo(settings ?? const PeriodTrackerModel());
                 final hasData = settings != null && settings.lastPeriodStart != null;
+                final currentPhase = info['phase'] as CyclePhase?;
 
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -73,11 +74,14 @@ class _PeriodTrackerScreenState extends ConsumerState<PeriodTrackerScreen> {
                     else ...[
                       _buildDashboard(info),
                       const SizedBox(height: 28),
-                      _buildCalendarSection(settings!),
+                      _buildCalendarSection(settings),
                       const SizedBox(height: 28),
                       _buildPhasesSection(info),
                       const SizedBox(height: 28),
                       _buildInsightsSection(logsAsync.value ?? []),
+                      if(!_isOwnTracker&& currentPhase!=null)...[
+                        CycleMoodSection(phase: currentPhase)
+                      ]
                     ],
                   ],
                 );
@@ -553,61 +557,6 @@ class _PeriodTrackerScreenState extends ConsumerState<PeriodTrackerScreen> {
     );
   }
 
-  void _showLogPeriodSheet(BuildContext context) {
-    final settings = ref.read(periodTrackerStreamProvider(widget.userId)).value ?? const PeriodTrackerModel();
-
-    DateTime start = DateTime.now();
-    DateTime end = DateTime.now().add(Duration(days: settings.periodDuration - 1));
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Log Period', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 24),
-              _buildDatePickerTile('Start Date', start, (date) => setSheetState(() => start = date)),
-              const SizedBox(height: 16),
-              _buildDatePickerTile('End Date', end, (date) => setSheetState(() => end = date)),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE91E8C),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: () async {
-                    if (end.isBefore(start)) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('End date cannot be before start date')),
-                        );
-                      }
-                      return;
-                    }
-                    final log = PeriodLogModel(id: '', startDate: start, endDate: end, createdAt: DateTime.now());
-                    await ref.read(firestoreServiceProvider).addPeriodLog(widget.userId, log);
-                    if (context.mounted) Navigator.pop(context);
-                  },
-                  child: const Text('Save Log'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildDatePickerTile(String label, DateTime date, Function(DateTime) onPick) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -695,7 +644,60 @@ class _PeriodTrackerScreenState extends ConsumerState<PeriodTrackerScreen> {
       ),
     );
   }
+  void _showLogPeriodSheet(BuildContext context) {
+    final settings = ref.read(periodTrackerStreamProvider(widget.userId)).value ?? const PeriodTrackerModel();
 
+    DateTime start = DateTime.now();
+    DateTime end = DateTime.now().add(Duration(days: settings.periodDuration - 1));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Log Period', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 24),
+              _buildDatePickerTile('Start Date', start, (date) => setSheetState(() => start = date)),
+              const SizedBox(height: 16),
+              _buildDatePickerTile('End Date', end, (date) => setSheetState(() => end = date)),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE91E8C),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () async {
+                    if (end.isBefore(start)) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('End date cannot be before start date')),
+                        );
+                      }
+                      return;
+                    }
+                    final log = PeriodLogModel(id: '', startDate: start, endDate: end, createdAt: DateTime.now());
+                    await ref.read(firestoreServiceProvider).addPeriodLog(widget.userId, log);
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  child: const Text('Save Log'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
   Widget _buildNumberPicker(String label, int value, int min, int max, Function(int) onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

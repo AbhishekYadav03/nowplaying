@@ -1,6 +1,75 @@
 import 'package:flutter/material.dart';
 import 'package:nowplaying/models/period_tracker_model.dart';
+class CycleMood {
+  const CycleMood({
+    required this.label,
+    required this.emoji,
+    required this.intensity, // 1–3: mild, moderate, strong
+  });
 
+  final String label;
+  final String emoji;
+  final int intensity;
+}
+
+extension CyclePhaseMoods on CyclePhase {
+  List<CycleMood> get moods => switch (this) {
+    CyclePhase.menstrual => const [
+      CycleMood(label: 'Fatigued',    emoji: '😴', intensity: 3),
+      CycleMood(label: 'Crampy',      emoji: '🤕', intensity: 3),
+      CycleMood(label: 'Irritable',   emoji: '😤', intensity: 2),
+      CycleMood(label: 'Introverted', emoji: '🫂', intensity: 2),
+      CycleMood(label: 'Emotional',   emoji: '🥺', intensity: 2),
+    ],
+    CyclePhase.follicular => const [
+      CycleMood(label: 'Energetic',   emoji: '⚡', intensity: 2),
+      CycleMood(label: 'Optimistic',  emoji: '🌱', intensity: 2),
+      CycleMood(label: 'Creative',    emoji: '🎨', intensity: 2),
+      CycleMood(label: 'Social',      emoji: '💬', intensity: 1),
+      CycleMood(label: 'Motivated',   emoji: '🚀', intensity: 1),
+    ],
+    CyclePhase.fertile => const [
+      CycleMood(label: 'Confident',   emoji: '✨', intensity: 2),
+      CycleMood(label: 'Flirty',      emoji: '💃', intensity: 2),
+      CycleMood(label: 'Adventurous', emoji: '🌟', intensity: 2),
+      CycleMood(label: 'Talkative',   emoji: '🗣️', intensity: 1),
+      CycleMood(label: 'Radiant',     emoji: '☀️', intensity: 1),
+    ],
+    CyclePhase.ovulation => const [
+      CycleMood(label: 'Peak Energy', emoji: '🔥', intensity: 3),
+      CycleMood(label: 'Sharp',       emoji: '🎯', intensity: 3),
+      CycleMood(label: 'Outgoing',    emoji: '🤝', intensity: 2),
+      CycleMood(label: 'Driven',      emoji: '💪', intensity: 2),
+      CycleMood(label: 'Joyful',      emoji: '😄', intensity: 2),
+    ],
+    CyclePhase.luteal => const [
+      CycleMood(label: 'Sensitive',   emoji: '💭', intensity: 2),
+      CycleMood(label: 'Bloated',     emoji: '🫠', intensity: 2),
+      CycleMood(label: 'Anxious',     emoji: '😰', intensity: 2),
+      CycleMood(label: 'Craving',     emoji: '🍫', intensity: 3),
+      CycleMood(label: 'Reflective',  emoji: '🌙', intensity: 1),
+    ],
+  };
+  String moodSummary({bool isOwner = true}) => isOwner
+      ? _ownerSummary
+      : _viewerSummary;
+
+  String get _ownerSummary => switch (this) {
+    CyclePhase.menstrual  => 'Rest up — your body is working hard.',
+    CyclePhase.follicular => 'Great time to start new projects.',
+    CyclePhase.fertile    => 'You\'re at your most magnetic.',
+    CyclePhase.ovulation  => 'Peak performance window.',
+    CyclePhase.luteal     => 'Be gentle with yourself.',
+  };
+
+  String get _viewerSummary => switch (this) {
+    CyclePhase.menstrual  => 'She may need extra rest and comfort right now.',
+    CyclePhase.follicular => 'She\'s feeling refreshed and ready for new things.',
+    CyclePhase.fertile    => 'She\'s at her most social and energetic.',
+    CyclePhase.ovulation  => 'Her energy and confidence are at their peak.',
+    CyclePhase.luteal     => 'She might need a little extra patience and care.',
+  };
+}
 enum CyclePhase {
   menstrual('Menstrual', 'Period phase is active.'),
   follicular('Follicular', 'Getting ready for ovulation.'),
