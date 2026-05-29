@@ -108,9 +108,6 @@ android/
 ├── MediaPlugin.kt          # MediaSession EventChannel
 ├── MediaNotificationListenerService.kt
 └── MainActivity.kt
-
-functions/src/
-└── index.ts                # Cloud Functions (reactions FCM, cleanup)
 ```
 
 ## Key Commands
@@ -129,9 +126,6 @@ dart run build_runner build --delete-conflicting-outputs
 # Run tests
 flutter test
 
-# Deploy Firebase
-firebase deploy --only functions
-firebase deploy --only firestore:rules
 ```
 
 ## Architecture

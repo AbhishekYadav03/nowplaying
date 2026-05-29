@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/notification_service.dart';
-import 'theme.dart';
+import 'package:nowplaying/shared/data/notification_service.dart';
+import 'package:nowplaying/core/theme/theme.dart';
 import 'router.dart';
 
 class NowPlayingApp extends ConsumerStatefulWidget {
@@ -29,7 +29,7 @@ class _NowPlayingAppState extends ConsumerState<NowPlayingApp> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     return MaterialApp.router(
-      title: 'Softsync',
+      title: 'SoftSync',
       scaffoldMessengerKey: _messengerKey,
       theme: AppTheme.dark,
       routerConfig: router,
@@ -37,3 +37,6 @@ class _NowPlayingAppState extends ConsumerState<NowPlayingApp> {
     );
   }
 }
+
+
+

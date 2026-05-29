@@ -46,6 +46,7 @@ dependencies:
   url_launcher: ^6.3.1
   package_info_plus: ^9.0.0
   change_app_package_name: ^1.4.0
+  collection: ^1.19.1
 
 
 dev_dependencies:
