@@ -67,7 +67,7 @@ class _PeriodTrackerScreenState extends ConsumerState<PeriodTrackerScreen> {
 
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(16),
                   children: [
                     if (!hasData)
                       _buildEmptyState(canEdit)
