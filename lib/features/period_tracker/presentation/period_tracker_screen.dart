@@ -1,17 +1,17 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:nowplaying/features/period_tracker/presentation/widgets/cycle_mood_section.dart';
 import 'package:nowplaying/core/theme/theme.dart';
-import 'package:nowplaying/features/period_tracker/domain/period_tracker_model.dart';
-import 'package:nowplaying/shared/data/firestore_service.dart';
 import 'package:nowplaying/features/period_tracker/domain/period_logic.dart';
-import 'package:nowplaying/features/period_tracker/presentation/widgets/period_dashboard.dart';
+import 'package:nowplaying/features/period_tracker/domain/period_tracker_model.dart';
+import 'package:nowplaying/features/period_tracker/presentation/widgets/cycle_mood_section.dart';
 import 'package:nowplaying/features/period_tracker/presentation/widgets/period_calendar.dart';
-import 'package:nowplaying/features/period_tracker/presentation/widgets/period_phases_section.dart';
-import 'package:nowplaying/features/period_tracker/presentation/widgets/period_insights_section.dart';
-import 'package:nowplaying/features/period_tracker/presentation/widgets/period_status_widgets.dart';
+import 'package:nowplaying/features/period_tracker/presentation/widgets/period_dashboard.dart';
 import 'package:nowplaying/features/period_tracker/presentation/widgets/period_dialogs.dart';
+import 'package:nowplaying/features/period_tracker/presentation/widgets/period_insights_section.dart';
+import 'package:nowplaying/features/period_tracker/presentation/widgets/period_phases_section.dart';
+import 'package:nowplaying/features/period_tracker/presentation/widgets/period_status_widgets.dart';
+import 'package:nowplaying/shared/data/firestore_service.dart';
 
 class PeriodTrackerScreen extends ConsumerStatefulWidget {
   final String userId;
@@ -271,3 +271,4 @@ final periodTrackerStreamProvider = StreamProvider.family<PeriodTrackerModel?, S
 final periodLogsStreamProvider = StreamProvider.family<List<PeriodLogModel>, String>((ref, uid) {
   return ref.watch(firestoreServiceProvider).periodLogsStream(uid);
 });
+

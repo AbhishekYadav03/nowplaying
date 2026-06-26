@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nowplaying/shared/data/notification_service.dart';
+
+import 'package:nowplaying/app/router.dart';
 import 'package:nowplaying/core/theme/theme.dart';
-import 'router.dart';
+import 'package:nowplaying/shared/data/notification_service.dart';
 
 class NowPlayingApp extends ConsumerStatefulWidget {
   const NowPlayingApp({super.key});
@@ -37,6 +39,5 @@ class _NowPlayingAppState extends ConsumerState<NowPlayingApp> {
     );
   }
 }
-
 
 

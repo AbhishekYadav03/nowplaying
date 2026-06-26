@@ -1,15 +1,16 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:nowplaying/features/auth/domain/user_model.dart';
 import 'package:nowplaying/core/theme/theme.dart';
-import 'package:nowplaying/shared/data/firestore_service.dart';
 import 'package:nowplaying/features/auth/data/auth_service.dart';
+import 'package:nowplaying/features/auth/domain/user_model.dart';
 import 'package:nowplaying/features/period_tracker/presentation/period_tracker_screen.dart';
+import 'package:nowplaying/shared/data/firestore_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 final userProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
   return ref.read(firestoreServiceProvider).userStream(uid);
@@ -423,6 +424,5 @@ class _SettingsTile extends StatelessWidget {
     );
   }
 }
-
 
 

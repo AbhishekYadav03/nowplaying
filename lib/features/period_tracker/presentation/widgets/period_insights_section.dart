@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/period_tracker/domain/period_tracker_model.dart';
 
@@ -64,3 +65,4 @@ class _InsightRow extends StatelessWidget {
     );
   }
 }
+

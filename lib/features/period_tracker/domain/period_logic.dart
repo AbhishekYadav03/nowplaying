@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'package:nowplaying/features/period_tracker/domain/period_tracker_model.dart';
+
 class CycleMood {
   const CycleMood({
     required this.label,
@@ -293,7 +295,6 @@ class PeriodLogic {
     return days.toList()..sort();
   }
 
-
   /// Days between period end and fertile window start
   static List<DateTime> getFollicularDays(PeriodTrackerModel settings, DateTime month) {
     final info = calculateCycleInfo(settings);
@@ -336,6 +337,5 @@ class PeriodLogic {
     return days;
   }
 }
-
 
 

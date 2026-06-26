@@ -1,11 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nowplaying/core/theme/theme.dart';
-import 'package:nowplaying/shared/data/firestore_service.dart';
 import 'package:nowplaying/features/media/data/media_service.dart';
+import 'package:nowplaying/shared/data/firestore_service.dart';
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService(ref);
@@ -160,6 +160,5 @@ class NotificationService {
     await service.updateFcmToken(uid, token);
   }
 }
-
 
 

@@ -1,13 +1,13 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:nowplaying/core/theme/theme.dart';
-import 'package:nowplaying/shared/domain/relationship_date_model.dart';
 import 'package:nowplaying/features/auth/domain/user_model.dart';
+import 'package:nowplaying/features/friends/presentation/add_date_screen.dart';
+import 'package:nowplaying/features/friends/presentation/date_detail_screen.dart';
 import 'package:nowplaying/shared/data/firestore_service.dart';
-import 'add_date_screen.dart';
-import 'date_detail_screen.dart';
+import 'package:nowplaying/shared/domain/relationship_date_model.dart';
 
 final datesStreamProvider = StreamProvider.family<List<RelationshipDateModel>, (String, String)>((ref, ids) {
   return ref.watch(firestoreServiceProvider).datesStream(ids.$1, ids.$2);
@@ -194,6 +194,5 @@ class _Badge extends StatelessWidget {
     );
   }
 }
-
 
 

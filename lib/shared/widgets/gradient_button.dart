@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:nowplaying/core/theme/theme.dart';
 
 class GradientButton extends StatelessWidget {
@@ -67,6 +68,5 @@ class GradientButton extends StatelessWidget {
     );
   }
 }
-
 
 

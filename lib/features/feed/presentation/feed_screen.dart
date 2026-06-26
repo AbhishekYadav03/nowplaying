@@ -1,17 +1,16 @@
 import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:nowplaying/features/media/domain/now_playing_model.dart';
-import 'package:nowplaying/core/theme/theme.dart';
-import 'package:nowplaying/shared/data/firestore_service.dart';
-import 'package:nowplaying/features/media/data/media_service.dart';
-import 'package:nowplaying/features/auth/domain/user_model.dart';
-import 'package:nowplaying/features/media/presentation/widgets/now_playing_card.dart';
 
-import 'package:nowplaying/features/friends/presentation/friends_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nowplaying/core/theme/theme.dart';
+import 'package:nowplaying/features/auth/domain/user_model.dart';
+import 'package:nowplaying/features/media/data/media_service.dart';
+import 'package:nowplaying/features/media/domain/now_playing_model.dart';
+import 'package:nowplaying/features/media/presentation/widgets/now_playing_card.dart';
+import 'package:nowplaying/shared/data/firestore_service.dart';
 
 final friendsFeedProvider = StreamProvider.family<List<NowPlayingModel>, String>((ref, uid) {
   return ref.read(firestoreServiceProvider).friendsFeedStream(uid);
@@ -57,16 +56,16 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: const Text("Enable Music Detection"),
-            content: const Text("Allow notification access so the app can detect the song you are playing."),
+            title: const Text('Enable Music Detection'),
+            content: const Text('Allow notification access so the app can detect the song you are playing.'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
               ElevatedButton(
                 onPressed: () async {
                   Navigator.pop(context);
                   await MediaService.openSettings();
                 },
-                child: const Text("Enable"),
+                child: const Text('Enable'),
               ),
             ],
           );
@@ -80,7 +79,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     if (uid == null) {
-      return const Scaffold(body: Center(child: Text("Not logged in")));
+      return const Scaffold(body: Center(child: Text('Not logged in')));
     }
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -469,6 +468,5 @@ class _OnlineIndicator extends StatelessWidget {
     );
   }
 }
-
 
 

@@ -1,15 +1,16 @@
-import 'package:collection/collection.dart';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:collection/collection.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:nowplaying/features/auth/domain/user_model.dart';
 import 'package:nowplaying/features/media/domain/now_playing_model.dart';
-import 'package:nowplaying/shared/domain/relationship_date_model.dart';
 import 'package:nowplaying/features/period_tracker/domain/period_tracker_model.dart';
+import 'package:nowplaying/shared/domain/relationship_date_model.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService();
@@ -446,6 +447,5 @@ class FirestoreService {
     });
   }
 }
-
 
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/auth/data/auth_service.dart';
 import 'package:nowplaying/shared/widgets/gradient_button.dart';
@@ -237,6 +239,5 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 }
-
 
 

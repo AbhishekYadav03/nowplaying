@@ -1,12 +1,9 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter_riverpod/misc.dart';
-import 'firebase_options.dart';
-import 'app/app.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart';
+import 'package:nowplaying/app/app.dart';
+import 'package:nowplaying/firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +34,5 @@ final class ProviderLogger extends ProviderObserver {
         }''');
   }
 }
-
 
 

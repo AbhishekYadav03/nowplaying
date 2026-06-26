@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nowplaying/features/auth/presentation/auth_screen.dart';
 import 'package:nowplaying/features/feed/presentation/feed_screen.dart';
 import 'package:nowplaying/features/friends/presentation/friends_screen.dart';
@@ -47,6 +47,5 @@ class _AuthChangeNotifier extends ChangeNotifier {
     FirebaseAuth.instance.authStateChanges().listen((_) => notifyListeners());
   }
 }
-
 
 

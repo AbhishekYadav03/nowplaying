@@ -3,8 +3,7 @@
 // DO NOT edit manually.
 
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
@@ -42,8 +41,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'heart-beat-1108.firebasestorage.app',
     iosBundleId: 'com.heartbeat.musk',
   );
-
 }
-
-
-

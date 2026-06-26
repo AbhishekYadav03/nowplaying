@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'package:intl/intl.dart';
+
 import 'package:nowplaying/core/theme/theme.dart';
 
 class PeriodDatePickerTile extends StatelessWidget {
@@ -99,3 +101,4 @@ class PeriodNumberPicker extends StatelessWidget {
     );
   }
 }
+

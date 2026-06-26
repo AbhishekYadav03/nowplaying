@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'package:intl/intl.dart';
+
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/period_tracker/domain/period_logic.dart';
 import 'package:nowplaying/features/period_tracker/domain/period_tracker_model.dart';
@@ -9,12 +11,7 @@ class PeriodCalendar extends StatelessWidget {
   final DateTime selectedMonth;
   final ValueChanged<DateTime> onMonthChanged;
 
-  const PeriodCalendar({
-    super.key,
-    required this.settings,
-    required this.selectedMonth,
-    required this.onMonthChanged,
-  });
+  const PeriodCalendar({super.key, required this.settings, required this.selectedMonth, required this.onMonthChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +87,8 @@ class _CalendarGrid extends StatelessWidget {
         final isToday = DateUtils.isSameDay(date, today);
         final isPredicted = predictedDays.any((d) => DateUtils.isSameDay(d, date));
         final isOvulation = ovulationDate != null && DateUtils.isSameDay(ovulationDate, date);
-        final isFertile = fertileStart != null &&
+        final isFertile =
+            fertileStart != null &&
             fertileEnd != null &&
             !date.isBefore(fertileStart) &&
             !date.isAfter(fertileEnd) &&
@@ -128,11 +126,7 @@ class _CalendarGrid extends StatelessWidget {
           alignment: Alignment.center,
           child: Text(
             day.toString(),
-            style: TextStyle(
-              fontSize: 13,
-              color: textCol,
-              fontWeight: weight,
-            ),
+            style: TextStyle(fontSize: 13, color: textCol, fontWeight: weight),
           ),
         );
       },
@@ -149,14 +143,12 @@ class _CalendarLegend extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          ...CyclePhase.values.map((phase) => Padding(
-                padding: const EdgeInsets.only(right: 16.0),
-                child: _LegendItem(
-                  label: phase.name,
-                  color: phase.backgroundColor,
-                  borderColor: phase.borderColor,
-                ),
-              )),
+          ...CyclePhase.values.map(
+            (phase) => Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: _LegendItem(label: phase.name, color: phase.backgroundColor, borderColor: phase.borderColor),
+            ),
+          ),
           _LegendItem(
             label: 'Today',
             color: AppColors.primary.withValues(alpha: 0.15),
@@ -172,13 +164,11 @@ class _LegendItem extends StatelessWidget {
   final String label;
   final Color color;
   final Color? borderColor;
-  final bool isDot;
 
   const _LegendItem({
     required this.label,
     required this.color,
     this.borderColor,
-    this.isDot = false,
   });
 
   @override
@@ -187,8 +177,8 @@ class _LegendItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: isDot ? 6 : 12,
-          height: isDot ? 6 : 12,
+          width: 12,
+          height: 12,
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
@@ -201,3 +191,4 @@ class _LegendItem extends StatelessWidget {
     );
   }
 }
+

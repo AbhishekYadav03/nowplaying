@@ -1,14 +1,14 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/auth/domain/user_model.dart';
-import 'package:nowplaying/shared/data/firestore_service.dart';
+import 'package:nowplaying/features/friends/presentation/dates_screen.dart';
 import 'package:nowplaying/features/period_tracker/presentation/period_tracker_screen.dart';
-import 'dates_screen.dart';
+import 'package:nowplaying/shared/data/firestore_service.dart';
 
 class FriendsScreen extends ConsumerStatefulWidget {
   const FriendsScreen({super.key});
@@ -492,7 +492,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               ),
               onTap: () {
                 Navigator.pop(context);
-                _setPartner(myUid, isPartner ? "" : friend.uid, friend.displayName);
+                _setPartner(myUid, isPartner ? '' : friend.uid, friend.displayName);
               },
             ),
             ListTile(
@@ -567,6 +567,5 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     return 'Active ${diff.inDays}d ago';
   }
 }
-
 
 

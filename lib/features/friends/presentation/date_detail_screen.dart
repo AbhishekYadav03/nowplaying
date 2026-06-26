@@ -1,13 +1,13 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:nowplaying/core/theme/theme.dart';
-import 'package:nowplaying/shared/domain/relationship_date_model.dart';
 import 'package:nowplaying/features/auth/domain/user_model.dart';
+import 'package:nowplaying/features/friends/presentation/add_date_screen.dart';
 import 'package:nowplaying/shared/data/firestore_service.dart';
-import 'add_date_screen.dart';
+import 'package:nowplaying/shared/domain/relationship_date_model.dart';
 
 class DateDetailScreen extends ConsumerWidget {
   final RelationshipDateModel date;
@@ -196,6 +196,5 @@ class DateDetailScreen extends ConsumerWidget {
     }
   }
 }
-
 
 

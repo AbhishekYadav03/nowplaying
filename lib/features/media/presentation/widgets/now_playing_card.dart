@@ -1,16 +1,15 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nowplaying/features/friends/presentation/friends_screen.dart';
-import 'package:nowplaying/features/media/data/media_service.dart';
-import 'package:nowplaying/shared/data/firestore_service.dart';
-import 'package:nowplaying/features/media/presentation/widgets/media_controls.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:nowplaying/core/theme/theme.dart';
+import 'package:nowplaying/features/media/data/media_service.dart';
 import 'package:nowplaying/features/media/domain/now_playing_model.dart';
+import 'package:nowplaying/features/media/presentation/widgets/media_controls.dart';
+import 'package:nowplaying/shared/data/firestore_service.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class NowPlayingCard extends ConsumerStatefulWidget {
@@ -335,7 +334,7 @@ class _NowPlayingCardState extends ConsumerState<NowPlayingCard> with SingleTick
   }
 
   bool _isBase64(String value) {
-    return value.length > 100 && !value.startsWith("http");
+    return value.length > 100 && !value.startsWith('http');
   }
 
   Widget _buildAlbumArt() {
@@ -683,6 +682,5 @@ class NowPlayingCardSkeleton extends StatelessWidget {
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(radius)),
   );
 }
-
 
 

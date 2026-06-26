@@ -1,10 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:nowplaying/core/theme/theme.dart';
-import 'package:nowplaying/shared/domain/relationship_date_model.dart';
 import 'package:nowplaying/shared/data/firestore_service.dart';
+import 'package:nowplaying/shared/domain/relationship_date_model.dart';
 
 class AddDateScreen extends ConsumerStatefulWidget {
   final String friendId;
@@ -175,7 +175,7 @@ class _AddDateScreenState extends ConsumerState<AddDateScreen> {
                 style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
               ),
               value: _isRecursive,
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
               contentPadding: EdgeInsets.zero,
               onChanged: (v) => setState(() => _isRecursive = v),
             ),
@@ -196,6 +196,5 @@ class _AddDateScreenState extends ConsumerState<AddDateScreen> {
     );
   }
 }
-
 
 

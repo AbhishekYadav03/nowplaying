@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:nowplaying/core/theme/theme.dart';
 
 class PeriodPrivacyState extends StatelessWidget {
@@ -106,3 +107,4 @@ class PeriodEmptyState extends StatelessWidget {
     );
   }
 }
+

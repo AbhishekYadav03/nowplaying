@@ -60,3 +60,4 @@ class RelationshipDateModel {
     return today.difference(eventDate).inDays;
   }
 }
+

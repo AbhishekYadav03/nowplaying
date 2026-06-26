@@ -1,11 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:nowplaying/shared/data/firestore_service.dart';
 import 'package:nowplaying/features/media/domain/now_playing_model.dart';
-import 'dart:convert';
-import 'dart:typed_data';
+import 'package:nowplaying/shared/data/firestore_service.dart';
 
 final mediaServiceProvider = Provider<MediaService>((ref) {
   final service = MediaService(ref.read(firestoreServiceProvider));
@@ -181,6 +181,5 @@ class MediaService {
     _controller.close();
   }
 }
-
 
 

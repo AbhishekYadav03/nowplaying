@@ -1,8 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:nowplaying/shared/data/firestore_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(ref.read(firestoreServiceProvider));
@@ -103,6 +103,5 @@ class AuthService {
     return cred;
   }
 }
-
 
 
