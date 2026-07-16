@@ -1,5 +1,6 @@
 package com.heartbeat.musk
 
+import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
@@ -29,17 +30,57 @@ class MediaNotificationListenerService : NotificationListenerService() {
         const val EXTRA_COMMAND = "command"
     }
 
+    private var pendingCommand: String? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent != null && intent.action == ACTION_MEDIA_CONTROL) {
+            val command = intent.getStringExtra(EXTRA_COMMAND)
+            handleCommand(command)
+        }
+        return START_STICKY
+    }
+
+    private fun handleCommand(command: String?) {
+        Log.d("SoftSync", "Handling command: $command")
+        
+        if (activeController == null) {
+            pendingCommand = command
+            try {
+                val componentName = ComponentName(this, MediaNotificationListenerService::class.java)
+                val controllers = sessionManager.getActiveSessions(componentName)
+                if (controllers.isNotEmpty()) {
+                    attachController(controllers[0])
+                }
+            } catch (e: Exception) {
+                Log.e("SoftSync", "Could not get sessions: ${e.message}")
+            }
+            
+            if (activeController == null) {
+                Log.d("SoftSync", "No active controller yet, command '$command' pending")
+                return
+            }
+        }
+
+        executeCommand(command)
+    }
+
+    private fun executeCommand(command: String?) {
+        Log.d("SoftSync", "Executing command: $command")
+        when (command) {
+            "play" -> activeController?.transportControls?.play()
+            "pause" -> activeController?.transportControls?.pause()
+            "skipNext" -> activeController?.transportControls?.skipToNext()
+            "skipPrevious" -> activeController?.transportControls?.skipToPrevious()
+        }
+        if (command == pendingCommand) {
+            pendingCommand = null
+        }
+    }
+
     private val controlReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val command = intent?.getStringExtra(EXTRA_COMMAND)
-            Log.d("SoftSync", "Received background command: $command")
-            
-            when (command) {
-                "play" -> activeController?.transportControls?.play()
-                "pause" -> activeController?.transportControls?.pause()
-                "skipNext" -> activeController?.transportControls?.skipToNext()
-                "skipPrevious" -> activeController?.transportControls?.skipToPrevious()
-            }
+            handleCommand(command)
         }
     }
 
@@ -88,6 +129,10 @@ class MediaNotificationListenerService : NotificationListenerService() {
         activeController = controller
         controller.registerCallback(mCallback)
         updateFirestore(controller)
+        
+        pendingCommand?.let {
+            executeCommand(it)
+        }
     }
 
     private val mCallback = object : MediaController.Callback() {

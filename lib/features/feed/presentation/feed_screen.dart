@@ -264,7 +264,37 @@ class _MyStatusBar extends ConsumerWidget {
           userPhoto: user?.photoURL,
         );
 
-        return NowPlayingCard(model: enrichedMedia, isOwn: true, canReact: false);
+        final isPrivate = user?.isSharingEnabled == false;
+
+        return Stack(
+          children: [
+            NowPlayingCard(model: enrichedMedia, isOwn: true, canReact: false),
+            if (isPrivate)
+              Positioned(
+                top: 24,
+                right: 24,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24, width: 0.5),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.visibility_off_rounded, size: 12, color: Colors.white70),
+                      SizedBox(width: 4),
+                      Text(
+                        'Private',
+                        style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
       },
       loading: () => const SizedBox.shrink(),
       error: (_, _) => _buildPermissionRequiredBanner(context),

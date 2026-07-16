@@ -14,18 +14,28 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         if (data["action"] == "media_control") {
             val command = data["command"]
             if (command != null) {
-                sendControlBroadcast(command)
+                sendControlCommand(command)
             }
         }
     }
 
-    private fun sendControlBroadcast(command: String) {
-        val intent = Intent(MediaNotificationListenerService.ACTION_MEDIA_CONTROL).apply {
+    private fun sendControlCommand(command: String) {
+        val intent = Intent(this@MyFirebaseMessagingService, MediaNotificationListenerService::class.java).apply {
+            action = MediaNotificationListenerService.ACTION_MEDIA_CONTROL
             putExtra(MediaNotificationListenerService.EXTRA_COMMAND, command)
-            setPackage(packageName)
         }
-        sendBroadcast(intent)
-        Log.d("SoftSync", "Sent control broadcast for command: $command")
+        try {
+            startService(intent)
+            Log.d("SoftSync", "Sent control command to service: $command")
+        } catch (e: Exception) {
+            Log.e("SoftSync", "Failed to start service for control command: ${e.message}")
+            // Fallback to broadcast
+            val broadcastIntent = Intent(MediaNotificationListenerService.ACTION_MEDIA_CONTROL).apply {
+                putExtra(MediaNotificationListenerService.EXTRA_COMMAND, command)
+                setPackage(packageName)
+            }
+            sendBroadcast(broadcastIntent)
+        }
     }
 
     override fun onNewToken(token: String) {

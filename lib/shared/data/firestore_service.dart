@@ -336,10 +336,17 @@ class FirestoreService {
                 final uids = snap.docs.map((d) => d.id).toList();
                 final userDocs = await _db.collection('users').where(FieldPath.documentId, whereIn: uids).get();
                 final userMap = {for (final u in userDocs.docs) u.id: u.data()};
-                return snap.docs.map((d) {
-                  final u = userMap[d.id];
-                  return NowPlayingModel.fromFirestore(d, userName: u?['displayName'], userPhoto: u?['photoURL']);
-                }).toList();
+
+                return snap.docs
+                    .where((d) {
+                      final u = userMap[d.id];
+                      return u?['isSharingEnabled'] ?? true;
+                    })
+                    .map((d) {
+                      final u = userMap[d.id];
+                      return NowPlayingModel.fromFirestore(d, userName: u?['displayName'], userPhoto: u?['photoURL']);
+                    })
+                    .toList();
               })
               .distinct((prev, next) => equality.equals(prev, next));
         });
