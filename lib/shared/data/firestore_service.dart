@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:nowplaying/features/auth/domain/user_model.dart';
+import 'package:nowplaying/features/birthday/domain/birthday_model.dart';
 import 'package:nowplaying/features/media/domain/now_playing_model.dart';
 import 'package:nowplaying/features/period_tracker/domain/period_tracker_model.dart';
 import 'package:nowplaying/shared/domain/relationship_date_model.dart';
@@ -451,6 +452,40 @@ class FirestoreService {
       if (!snap.exists) return ['🔥', '❤️', '😮', '🎉', '👏', '💜'];
       final data = snap.data();
       return List<String>.from(data?['list'] ?? ['🔥', '❤️', '😮', '🎉', '👏', '💜']);
+    });
+  }
+
+  // ── Birthday Experience ──────────────────────────────────────────────────
+
+  Stream<BirthdayConfig> birthdayConfigStream() {
+    return _db.collection('config').doc('birthday').snapshots().map((snap) {
+      return BirthdayConfig.fromFirestore(snap);
+    });
+  }
+
+  Future<void> updateBirthdayConfig(BirthdayConfig config) async {
+    await _db.collection('config').doc('birthday').set(config.toMap());
+  }
+
+
+  Stream<BirthdayContent> birthdayContentStream() {
+    return _db.collection('config').doc('birthday_content').snapshots().map((snap) {
+      if (!snap.exists) return BirthdayContent.defaultContent();
+      return BirthdayContent.fromFirestore(snap);
+    });
+  }
+
+  Future<void> updateBirthdayContent(BirthdayContent content) async {
+    await _db.collection('config').doc('birthday_content').set(content.toMap());
+  }
+
+  Future<void> updateBirthdayCompleted(String uid, int year) async {
+    await _db.collection('users').doc(uid).update({'birthdayCompleted': year});
+  }
+
+  Future<void> updatePartnerBirthday(String uid, DateTime? birthday) async {
+    await _db.collection('users').doc(uid).update({
+      'partnerBirthday': birthday != null ? Timestamp.fromDate(birthday) : null,
     });
   }
 }

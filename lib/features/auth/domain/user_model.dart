@@ -12,6 +12,8 @@ class UserModel {
   final String? appVersion;
   final String? partnerId;
   final String? gender;
+  final int? birthdayCompleted;
+  final DateTime? partnerBirthday;
 
   const UserModel({
     required this.uid,
@@ -25,6 +27,8 @@ class UserModel {
     this.appVersion,
     this.partnerId,
     this.gender,
+    this.birthdayCompleted,
+    this.partnerBirthday,
   });
 
   bool get isOnline {
@@ -49,6 +53,8 @@ class UserModel {
       appVersion: data['appVersion'],
       partnerId: data['partnerId'],
       gender: data['gender'],
+      birthdayCompleted: data['birthdayCompleted'],
+      partnerBirthday: (data['partnerBirthday'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -64,6 +70,8 @@ class UserModel {
     'appVersion': appVersion,
     'partnerId': partnerId,
     'gender': gender,
+    'birthdayCompleted': birthdayCompleted,
+    'partnerBirthday': partnerBirthday != null ? Timestamp.fromDate(partnerBirthday!) : null,
   };
 
   UserModel copyWith({
@@ -76,6 +84,8 @@ class UserModel {
     String? appVersion,
     String? partnerId,
     String? gender,
+    int? birthdayCompleted,
+    DateTime? partnerBirthday,
   }) {
     return UserModel(
       uid: uid,
@@ -89,6 +99,8 @@ class UserModel {
       appVersion: appVersion ?? this.appVersion,
       partnerId: partnerId ?? this.partnerId,
       gender: gender ?? this.gender,
+      birthdayCompleted: birthdayCompleted ?? this.birthdayCompleted,
+      partnerBirthday: partnerBirthday ?? this.partnerBirthday,
     );
   }
 }

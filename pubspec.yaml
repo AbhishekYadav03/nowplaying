@@ -1,6 +1,6 @@
 name: nowplaying
 description: Real-time media sharing for friends and couples.
-version: 1.0.23+43
+version: 1.0.31+43
 publish_to: none
 
 environment:
@@ -36,6 +36,8 @@ dependencies:
   image_picker: ^1.1.2
   lottie: ^3.3.0
   shimmer: ^3.0.0
+  confetti: ^0.7.0
+  animated_text_kit: ^4.2.2
 
   # Utilities
   change_app_package_name: ^1.4.0

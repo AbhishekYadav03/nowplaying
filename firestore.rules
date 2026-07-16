@@ -44,5 +44,13 @@ service cloud.firestore {
       }
     }
 
+    // ── Birthday & Config ──────────────────────────────────────────────────
+    match /config/{configId} {
+      // Any signed-in user can read config (needed for the experience)
+      allow read: if isSignedIn();
+      // Only signed-in users can write to birthday config (admin access)
+      // Note: In a production app, you might want to restrict this to specific admin UIDs.
+      allow write: if isSignedIn();
+    }
   }
 }

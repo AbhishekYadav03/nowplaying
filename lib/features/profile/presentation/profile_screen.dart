@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/auth/data/auth_service.dart';
 import 'package:nowplaying/features/auth/domain/user_model.dart';
+import 'package:nowplaying/features/birthday/presentation/birthday_admin_screen.dart';
 import 'package:nowplaying/features/period_tracker/presentation/period_tracker_screen.dart';
 import 'package:nowplaying/shared/data/firestore_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -242,6 +243,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       label: 'Gender',
                       subtitle: user.gender ?? 'Not set',
                       onTap: () => _showGenderPicker(uid, user.gender),
+                    ),
+                    const Divider(height: 1, color: AppColors.border),
+                    _SettingsTile(
+                      icon: Icons.cake_outlined,
+                      label: 'Birthday Setup',
+                      subtitle: 'Manage partner experience',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => BirthdayAdminScreen(user: user)),
+                        );
+                      },
                     ),
                     const Divider(height: 1, color: AppColors.border),
                     packageInfoAsync.when(

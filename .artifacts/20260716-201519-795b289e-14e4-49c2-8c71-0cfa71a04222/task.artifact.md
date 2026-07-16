@@ -1,0 +1,24 @@
+# Birthday Experience Module Task List
+
+- [x] Initial Setup
+    - [x] Create Implementation Plan
+    - [x] Update `pubspec.yaml` with dependencies
+- [x] Core & Models
+    - [x] Create `birthday_model.dart`
+    - [x] Update `user_model.dart`
+- [x] Data Layer
+    - [x] Update `firestore_service.dart` with birthday-related methods
+- [x] Presentation - Birthday Experience
+    - [x] Implement `BirthdayExperienceScreen`
+    - [x] Implement `BirthdayStepsWidgets`
+- [x] Presentation - Admin & Trigger
+    - [x] Implement `BirthdayAdminScreen`
+    - [x] Add trigger logic to `FeedScreen`
+    - [x] Add link to Admin Screen in `ProfileScreen`
+- [x] Security & Permissions
+    - [x] Update `firestore.rules` to allow config writes
+- [x] Verification
+    - [x] Manual verification of Admin Setup
+    - [x] Manual verification of Trigger Logic
+    - [x] Manual verification of Birthday Journey Flow
+    - [x] Manual verification of Completion State

@@ -7,6 +7,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/auth/domain/user_model.dart';
+import 'package:nowplaying/features/birthday/domain/birthday_model.dart';
+import 'package:nowplaying/features/birthday/presentation/birthday_experience_screen.dart';
+import 'package:nowplaying/features/birthday/presentation/birthday_admin_screen.dart';
 import 'package:nowplaying/features/media/data/media_service.dart';
 import 'package:nowplaying/features/media/domain/now_playing_model.dart';
 import 'package:nowplaying/features/media/presentation/widgets/now_playing_card.dart';
@@ -33,6 +36,38 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkPermission();
+    _checkBirthday();
+  }
+
+  Future<void> _checkBirthday() async {
+    // Wait for providers to be ready
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      final user = ref.read(userStreamProvider(uid)).value;
+      if (user == null || user.partnerBirthday == null) return;
+
+      final now = DateTime.now();
+      final isBirthday = user.partnerBirthday!.month == now.month && user.partnerBirthday!.day == now.day;
+
+      if (isBirthday) {
+        final config = ref.read(birthdayConfigStreamProvider).value;
+        if (config != null && config.enabled && user.birthdayCompleted != config.year) {
+          final content = ref.read(birthdayContentStreamProvider).value;
+          if (content != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BirthdayExperienceScreen(content: content, year: config.year),
+              ),
+            );
+          }
+        }
+      }
+    });
   }
 
   @override
