@@ -14,6 +14,8 @@ class UserModel {
   final String? gender;
   final int? birthdayCompleted;
   final DateTime? partnerBirthday;
+  final bool isBirthdayEnabled;
+  final int? birthdayYear;
 
   const UserModel({
     required this.uid,
@@ -29,6 +31,8 @@ class UserModel {
     this.gender,
     this.birthdayCompleted,
     this.partnerBirthday,
+    this.isBirthdayEnabled = false,
+    this.birthdayYear,
   });
 
   bool get isOnline {
@@ -55,6 +59,8 @@ class UserModel {
       gender: data['gender'],
       birthdayCompleted: data['birthdayCompleted'],
       partnerBirthday: (data['partnerBirthday'] as Timestamp?)?.toDate(),
+      isBirthdayEnabled: data['isBirthdayEnabled'] ?? false,
+      birthdayYear: data['birthdayYear'],
     );
   }
 
@@ -72,6 +78,8 @@ class UserModel {
     'gender': gender,
     'birthdayCompleted': birthdayCompleted,
     'partnerBirthday': partnerBirthday != null ? Timestamp.fromDate(partnerBirthday!) : null,
+    'isBirthdayEnabled': isBirthdayEnabled,
+    'birthdayYear': birthdayYear,
   };
 
   UserModel copyWith({
@@ -86,6 +94,8 @@ class UserModel {
     String? gender,
     int? birthdayCompleted,
     DateTime? partnerBirthday,
+    bool? isBirthdayEnabled,
+    int? birthdayYear,
   }) {
     return UserModel(
       uid: uid,
@@ -101,6 +111,8 @@ class UserModel {
       gender: gender ?? this.gender,
       birthdayCompleted: birthdayCompleted ?? this.birthdayCompleted,
       partnerBirthday: partnerBirthday ?? this.partnerBirthday,
+      isBirthdayEnabled: isBirthdayEnabled ?? this.isBirthdayEnabled,
+      birthdayYear: birthdayYear ?? this.birthdayYear,
     );
   }
 }

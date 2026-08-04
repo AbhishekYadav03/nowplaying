@@ -8,9 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/auth/domain/user_model.dart';
-import 'package:nowplaying/features/birthday/domain/birthday_model.dart';
-import 'package:nowplaying/features/birthday/presentation/birthday_experience_screen.dart';
-import 'package:nowplaying/features/birthday/presentation/birthday_admin_screen.dart';
+import 'package:nowplaying/features/birthday/data/birthday_providers.dart';
 import 'package:nowplaying/features/media/data/media_service.dart';
 import 'package:nowplaying/features/media/domain/now_playing_model.dart';
 import 'package:nowplaying/features/media/presentation/widgets/now_playing_card.dart';
@@ -37,62 +35,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkPermission();
-    _checkBirthday();
   }
 
-  Future<void> _checkBirthday() async {
-    // Give providers some time to initialize
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (!mounted) return;
-
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    // print('Checking birthday for user: $uid');
-    if (uid == null) return;
-
-    // Get current user
-    final user = await ref.read(userStreamProvider(uid).future);
-    if (user?.partnerId == null) return;
-    // print('Partner ID: ${user!.partnerId}');
-
-
-    // Get partner
-    final firestore = ref.read(firestoreServiceProvider);
-    final partner = await firestore.getUser(user!.partnerId!);
-    // print('Partner: ${partner?.displayName}');
-
-    if (!mounted) return;
-
-    if (partner == null || partner.partnerBirthday == null) return;
-
-    final now = DateTime.now();
-    final isBirthday = partner.partnerBirthday!.month == now.month &&
-        partner.partnerBirthday!.day == now.day;
-    // print('Is birthday: $isBirthday');
-    if (!isBirthday) return;
-    // Wait until config is available
-    final config = await firestore.getBirthdayConfig();
-    // print('Birthday config: ${config.enabled}, year: ${config.year}');
-    if (!config.enabled) return;
-
-    // Already completed this year's birthday experience
-    if (user.birthdayCompleted == config.year) return;
-    // print('Birthday experience not completed for year: ${config.year}');
-
-    // Wait until content is available
-    final content = await firestore.getBirthdayContent();
-    // print('Birthday content: ${content.chapters.length} items');
-
-    if (!mounted) return;
-
-    context.push(
-      '/birthday-experience',
-      extra: {
-        'content': content,
-        'year': config.year,
-      },
-    );
-  }
 
   @override
   void dispose() {
@@ -140,6 +84,22 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
     if (uid == null) {
       return const Scaffold(body: Center(child: Text('Not logged in')));
     }
+
+    // Listen for birthday triggers
+    ref.listen(birthdayTriggerProvider, (previous, next) {
+      next.whenData((state) {
+        if (state.shouldShow && state.content != null && state.year != null) {
+          context.push(
+            '/birthday-experience',
+            extra: {
+              'content': state.content,
+              'year': state.year,
+            },
+          );
+        }
+      });
+    });
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(

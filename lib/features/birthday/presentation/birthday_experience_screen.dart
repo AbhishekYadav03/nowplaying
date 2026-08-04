@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/birthday/domain/birthday_model.dart';
 import 'package:nowplaying/features/birthday/presentation/widgets/birthday_steps_widgets.dart';
@@ -24,126 +25,147 @@ class _BirthdayExperienceScreenState extends ConsumerState<BirthdayExperienceScr
   int _currentStep = 0;
   bool _isFinished = false;
 
+  final List<Color> _bgColors = [
+    Colors.black,
+    const Color(0xFF0D0221), // Deep navy
+    const Color(0xFF1E0136), // Dark purple
+    const Color(0xFF2D012D), // Deep magenta
+    const Color(0xFF1B011B), // Darker magenta
+    const Color(0xFF00051C), // Very dark blue
+    Colors.black,
+  ];
+
   void _next() {
     final totalSteps = widget.content.chapters.length + 7;
     if (_currentStep < totalSteps - 1) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 800),
-        curve: Curves.easeInOutCubic,
-      );
+      _pageController.nextPage(duration: const Duration(milliseconds: 1200), curve: Curves.easeInOutQuart);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final totalSteps = 7 + widget.content.chapters.length; // Calculate actual steps
+    final totalSteps = 7 + widget.content.chapters.length;
 
     if (_isFinished) {
       return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
-          child: const Text(
+          child: Text(
             'The best chapters\nare still waiting\nto be written.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w300, height: 1.6),
+            style: GoogleFonts.dancingScript(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.w300,
+              height: 1.6,
+            ),
           ).animate().fadeIn(duration: 2.seconds).then(delay: 2.seconds).fadeOut(duration: 1.seconds),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          const _StarBackground(),
-          PageView.builder(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            onPageChanged: (i) => setState(() => _currentStep = i),
-            itemCount: totalSteps,
-            itemBuilder: (context, index) {
-              final children = [
-                TypewriterStep(text: widget.content.opening, onComplete: _next),
-                TypewriterStep(text: widget.content.story, onComplete: _next),
-                for (var chapter in widget.content.chapters)
-                  ChapterStep(chapter: chapter, onNext: _next),
-                May8Step(title: widget.content.may8Title, message: widget.content.may8Message, onNext: _next),
-                IfICouldStep(cards: widget.content.ifICouldCards, onComplete: _next),
-                FutureStep(timeline: widget.content.timeline, onNext: _next),
-                CakeStep(message: widget.content.cakeMessage, onComplete: _next),
-                FinalLetterStep(
-                  text: widget.content.finalLetter,
-                  onFinish: () {
-                    // Immediate UI feedback
-                    if (mounted) setState(() => _isFinished = true);
+      body: AnimatedContainer(
+        duration: 2.seconds,
+        color: _bgColors[_currentStep % _bgColors.length],
+        child: Stack(
+          children: [
+            const _StarBackground(speedFactor: 0.5, starCount: 50, opacity: 0.3), // Far stars
+            const _StarBackground(speedFactor: 1.0, starCount: 40, opacity: 0.5), // Mid stars
+            const _StarBackground(speedFactor: 1.5, starCount: 20, opacity: 0.8), // Near stars
+            PageView.builder(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: (i) => setState(() => _currentStep = i),
+              itemCount: totalSteps,
+              itemBuilder: (context, index) {
+                final children = [
+                  TypewriterStep(text: widget.content.opening, onComplete: _next),
+                  TypewriterStep(text: widget.content.story, onComplete: _next),
+                  for (var chapter in widget.content.chapters) ChapterStep(chapter: chapter, onNext: _next),
+                  SpecialDayStep(
+                    title: widget.content.specialDayTitle,
+                    message: widget.content.specialDayMessage,
+                    onNext: _next,
+                  ),
+                  IfICouldStep(cards: widget.content.ifICouldCards, onComplete: _next),
+                  FutureStep(timeline: widget.content.timeline, onNext: _next),
+                  CakeStep(message: widget.content.cakeMessage, onComplete: _next),
+                  FinalLetterStep(
+                    text: widget.content.finalLetter,
+                    onFinish: () {
+                      // Immediate UI feedback
+                      if (mounted) setState(() => _isFinished = true);
 
-                    // Trigger Firestore update in background
-                    final uid = FirebaseAuth.instance.currentUser?.uid;
-                    if (uid != null) {
-                      ref.read(firestoreServiceProvider).updateBirthdayCompleted(uid, widget.year);
-                    }
-                    // Auto-close after animation sequence
-                    final router = GoRouter.of(context);
-
-                    Future.delayed(const Duration(seconds: 5), () {
-                      if (!mounted) return;
-
-                      if (router.canPop()) {
-                        router.pop();
+                      // Trigger Firestore update in background
+                      final uid = FirebaseAuth.instance.currentUser?.uid;
+                      if (uid != null) {
+                        ref.read(firestoreServiceProvider).updateBirthdayCompleted(uid, widget.year);
                       }
-                    });
+                      // Auto-close after animation sequence
+                      final router = GoRouter.of(context);
+
+                      Future.delayed(const Duration(seconds: 5), () {
+                        if (!mounted) return;
+
+                        if (router.canPop()) {
+                          router.pop();
+                        }
+                      });
+                    },
+                  ),
+                ];
+
+                return AnimatedBuilder(
+                  animation: _pageController,
+                  builder: (context, child) {
+                    double value = 1.0;
+                    if (_pageController.position.haveDimensions) {
+                      value = _pageController.page! - index;
+                      value = (1 - (value.abs() * 0.5)).clamp(0.0, 1.0);
+                    }
+                    return Opacity(
+                      opacity: value,
+                      child: Transform.scale(scale: 0.8 + (value * 0.2), child: children[index]),
+                    );
                   },
-                ),
-              ];
-              
-              return AnimatedBuilder(
-                animation: _pageController,
-                builder: (context, child) {
-                  double value = 1.0;
-                  if (_pageController.position.haveDimensions) {
-                    value = _pageController.page! - index;
-                    value = (1 - (value.abs() * 0.5)).clamp(0.0, 1.0);
-                  }
-                  return Opacity(
-                    opacity: value,
-                    child: Transform.scale(
-                      scale: 0.8 + (value * 0.2),
-                      child: children[index],
+                );
+              },
+            ),
+            // Progress indicator
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 20,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  totalSteps,
+                  (index) => Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index <= _currentStep ? Colors.white : Colors.white24,
                     ),
-                  );
-                },
-              );
-            },
-          ),
-          // Progress indicator
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 20,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                totalSteps,
-                (index) => Container(
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: index <= _currentStep ? Colors.white : Colors.white24,
                   ),
                 ),
-              ),
-            ).animate().fadeIn(),
-          ),
-        ],
+              ).animate().fadeIn(),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _StarBackground extends StatefulWidget {
-  const _StarBackground();
+  final double speedFactor;
+  final int starCount;
+  final double opacity;
+
+  const _StarBackground({this.speedFactor = 1.0, this.starCount = 100, this.opacity = 1.0});
 
   @override
   State<_StarBackground> createState() => _StarBackgroundState();
@@ -156,7 +178,7 @@ class _StarBackgroundState extends State<_StarBackground> with SingleTickerProvi
   @override
   void initState() {
     super.initState();
-    _stars = List.generate(100, (index) => _Star());
+    _stars = List.generate(widget.starCount, (index) => _Star(widget.speedFactor, widget.opacity));
     _controller = AnimationController(vsync: this, duration: const Duration(seconds: 10))..repeat();
   }
 
@@ -178,14 +200,20 @@ class _StarBackgroundState extends State<_StarBackground> with SingleTickerProvi
 }
 
 class _Star {
+  final double speedFactor;
+  final double baseOpacity;
+
+  _Star(this.speedFactor, this.baseOpacity);
+
   double x = Random().nextDouble();
   double y = Random().nextDouble();
-  double size = Random().nextDouble() * 2;
-  double opacity = Random().nextDouble();
+  double size = Random().nextDouble() * 2.5;
+  double opacity = 0;
   double speed = Random().nextDouble() * 0.001;
 
   void update() {
-    y -= speed;
+    y -= speed * speedFactor;
+    opacity = baseOpacity * (0.5 + 0.5 * sin(DateTime.now().millisecondsSinceEpoch * 0.002 + x * 100));
     if (y < 0) {
       y = 1;
       x = Random().nextDouble();
@@ -195,6 +223,7 @@ class _Star {
 
 class _StarPainter extends CustomPainter {
   final List<_Star> stars;
+
   _StarPainter(this.stars);
 
   @override

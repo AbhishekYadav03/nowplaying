@@ -4,23 +4,24 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/auth/domain/user_model.dart';
+import 'package:nowplaying/features/birthday/data/birthday_providers.dart';
 import 'package:nowplaying/features/birthday/domain/birthday_model.dart';
 import 'package:nowplaying/features/birthday/presentation/birthday_experience_screen.dart';
 import 'package:nowplaying/shared/data/firestore_service.dart';
 
-class BirthdayAdminScreen extends ConsumerStatefulWidget {
+class PartnerBirthdaySurpriseScreen extends ConsumerStatefulWidget {
   final UserModel user;
-  const BirthdayAdminScreen({super.key, required this.user});
+  const PartnerBirthdaySurpriseScreen({super.key, required this.user});
 
   @override
-  ConsumerState<BirthdayAdminScreen> createState() => _BirthdayAdminScreenState();
+  ConsumerState<PartnerBirthdaySurpriseScreen> createState() => _PartnerBirthdaySurpriseScreenState();
 }
 
-class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
+class _PartnerBirthdaySurpriseScreenState extends ConsumerState<PartnerBirthdaySurpriseScreen> {
   late TextEditingController _openingCtrl;
   late TextEditingController _storyCtrl;
-  late TextEditingController _may8TitleCtrl;
-  late TextEditingController _may8MsgCtrl;
+  late TextEditingController _specialDayTitleCtrl;
+  late TextEditingController _specialDayMsgCtrl;
   late TextEditingController _cakeMsgCtrl;
   late TextEditingController _finalLetterCtrl;
 
@@ -29,8 +30,8 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
     super.initState();
     _openingCtrl = TextEditingController();
     _storyCtrl = TextEditingController();
-    _may8TitleCtrl = TextEditingController();
-    _may8MsgCtrl = TextEditingController();
+    _specialDayTitleCtrl = TextEditingController();
+    _specialDayMsgCtrl = TextEditingController();
     _cakeMsgCtrl = TextEditingController();
     _finalLetterCtrl = TextEditingController();
   }
@@ -39,8 +40,8 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
   void dispose() {
     _openingCtrl.dispose();
     _storyCtrl.dispose();
-    _may8TitleCtrl.dispose();
-    _may8MsgCtrl.dispose();
+    _specialDayTitleCtrl.dispose();
+    _specialDayMsgCtrl.dispose();
     _cakeMsgCtrl.dispose();
     _finalLetterCtrl.dispose();
     super.dispose();
@@ -49,8 +50,8 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
   void _fillContent(BirthdayContent content) {
     if (_openingCtrl.text.isEmpty) _openingCtrl.text = content.opening;
     if (_storyCtrl.text.isEmpty) _storyCtrl.text = content.story;
-    if (_may8TitleCtrl.text.isEmpty) _may8TitleCtrl.text = content.may8Title;
-    if (_may8MsgCtrl.text.isEmpty) _may8MsgCtrl.text = content.may8Message;
+    if (_specialDayTitleCtrl.text.isEmpty) _specialDayTitleCtrl.text = content.specialDayTitle;
+    if (_specialDayMsgCtrl.text.isEmpty) _specialDayMsgCtrl.text = content.specialDayMessage;
     if (_cakeMsgCtrl.text.isEmpty) _cakeMsgCtrl.text = content.cakeMessage;
     if (_finalLetterCtrl.text.isEmpty) _finalLetterCtrl.text = content.finalLetter;
   }
@@ -70,13 +71,13 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userStreamProvider(widget.user.uid));
-    final configAsync = ref.watch(birthdayConfigStreamProvider);
-    final contentAsync = ref.watch(birthdayContentStreamProvider);
+    final configAsync = ref.watch(birthdayConfigProvider(widget.user.uid));
+    final contentAsync = ref.watch(birthdayContentProvider(widget.user.uid));
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Birthday Admin'),
+        title: const Text('Partner\'s Birthday Surprise'),
         actions: [
           contentAsync.when(
             data: (content) => TextButton(
@@ -92,7 +93,7 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
               child: const Text('Preview'),
             ),
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
         ],
       ),
@@ -113,21 +114,25 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
                     data: (config) => Column(
                       children: [
                         SwitchListTile(
-                          title: const Text('Enable Experience'),
+                          title: const Text('Enable Birthday Surprise'),
+                          subtitle: const Text('When enabled, your partner will see this experience on their birthday.'),
                           value: config.enabled,
+                          activeTrackColor: AppColors.primary,
                           onChanged: (val) {
                             ref.read(firestoreServiceProvider).updateBirthdayConfig(
+                                  widget.user.uid,
                                   config.copyWith(enabled: val),
                                 );
                           },
                         ),
                         ListTile(
-                          title: const Text('Target Year'),
+                          title: const Text('Experience Year'),
                           subtitle: Text('${config.year}'),
                           onTap: () async {
                             final year = await _showYearPicker(config.year);
                             if (year != null) {
                               ref.read(firestoreServiceProvider).updateBirthdayConfig(
+                                    widget.user.uid,
                                     config.copyWith(year: year),
                                   );
                             }
@@ -135,7 +140,10 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
                         ),
                       ],
                     ),
-                    loading: () => const CircularProgressIndicator(),
+                    loading: () => const Center(child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(),
+                    )),
                     error: (e, _) => Text('Error: $e'),
                   ),
                 ),
@@ -143,7 +151,7 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
                 _buildSection(
                   title: 'PARTNER INFO',
                   child: ListTile(
-                    title: const Text('Partner Birthday'),
+                    title: const Text('Partner\'s Birthday'),
                     subtitle: Text(
                       user.partnerBirthday != null
                           ? DateFormat('MMMM dd').format(user.partnerBirthday!)
@@ -158,26 +166,35 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
                   data: (content) {
                     _fillContent(content);
                     return _buildSection(
-                      title: 'CONTENT',
+                      title: 'SETUP SURPRISE CONTENT',
                       child: Column(
                         children: [
                           _buildTextField(_openingCtrl, 'Opening Message', maxLines: 5),
                           _buildTextField(_storyCtrl, 'Story Message', maxLines: 5),
-                          _buildTextField(_may8TitleCtrl, '8th May Title'),
-                          _buildTextField(_may8MsgCtrl, '8th May Message', maxLines: 5),
+                          _buildTextField(_specialDayTitleCtrl, 'Special Memory Title', hint: 'e.g. 8th May'),
+                          _buildTextField(_specialDayMsgCtrl, 'Special Memory Message', maxLines: 5),
                           _buildTextField(_cakeMsgCtrl, 'Cake Message'),
                           _buildTextField(_finalLetterCtrl, 'Final Letter', maxLines: 10),
                           const SizedBox(height: 20),
-                          ElevatedButton(
-                            onPressed: () => _saveContent(content),
-                            child: const Text('Save Content'),
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: ElevatedButton(
+                              onPressed: () => _saveContent(content),
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(50),
+                              ),
+                              child: const Text('Save Surprise Content'),
+                            ),
                           ),
                           const SizedBox(height: 10),
                         ],
                       ),
                     );
                   },
-                  loading: () => const CircularProgressIndicator(),
+                  loading: () => const Center(child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(),
+                  )),
                   error: (e, _) => Text('Error: $e'),
                 ),
               ],
@@ -214,7 +231,7 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController ctrl, String label, {int maxLines = 1}) {
+  Widget _buildTextField(TextEditingController ctrl, String label, {int maxLines = 1, String? hint}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: TextField(
@@ -222,6 +239,7 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
         maxLines: maxLines,
         decoration: InputDecoration(
           labelText: label,
+          hintText: hint,
           labelStyle: const TextStyle(color: AppColors.textTertiary),
           border: const UnderlineInputBorder(),
         ),
@@ -259,28 +277,19 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
       opening: _openingCtrl.text,
       story: _storyCtrl.text,
       chapters: existing.chapters,
-      may8Title: _may8TitleCtrl.text,
-      may8Message: _may8MsgCtrl.text,
+      specialDayTitle: _specialDayTitleCtrl.text,
+      specialDayMessage: _specialDayMsgCtrl.text,
       ifICouldCards: existing.ifICouldCards,
       timeline: existing.timeline,
       cakeMessage: _cakeMsgCtrl.text,
       finalLetter: _finalLetterCtrl.text,
     );
-    ref.read(firestoreServiceProvider).updateBirthdayContent(updated);
+    ref.read(firestoreServiceProvider).updateBirthdayContent(widget.user.uid, updated);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Content saved!'), backgroundColor: AppColors.primary),
+      const SnackBar(content: Text('Surprise content saved!'), backgroundColor: AppColors.primary),
     );
   }
 }
-
-// Providers for Birthday Config and Content
-final birthdayConfigStreamProvider = StreamProvider<BirthdayConfig>((ref) {
-  return ref.watch(firestoreServiceProvider).birthdayConfigStream();
-});
-
-final birthdayContentStreamProvider = StreamProvider<BirthdayContent>((ref) {
-  return ref.watch(firestoreServiceProvider).birthdayContentStream();
-});
 
 // Helper for copyWith in BirthdayConfig
 extension BirthdayConfigExt on BirthdayConfig {

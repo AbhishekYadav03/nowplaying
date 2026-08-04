@@ -41,11 +41,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-        path: '/birthday-admin',
+        path: '/birthday-setup',
         builder: (context, state) {
           final user = state.extra as UserModel;
 
-          return BirthdayAdminScreen(user: user);
+          return PartnerBirthdaySurpriseScreen(user: user);
         },
       ),
     ],

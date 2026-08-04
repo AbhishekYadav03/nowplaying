@@ -457,30 +457,43 @@ class FirestoreService {
 
   // ── Birthday Experience ──────────────────────────────────────────────────
 
-  Stream<BirthdayConfig> birthdayConfigStream() {
+  Stream<BirthdayConfig> globalBirthdayConfigStream() {
     return _db.collection('config').doc('birthday').snapshots().map((snap) {
       return BirthdayConfig.fromFirestore(snap);
     });
   }
 
-  Future<BirthdayConfig> getBirthdayConfig() async {
-    final snap = await _db.collection('config').doc('birthday').get();
+  Stream<BirthdayConfig> birthdayConfigStream(String uid) {
+    return _db.collection('users').doc(uid).collection('birthday').doc('config').snapshots().map((snap) {
+      if (!snap.exists) return BirthdayConfig(enabled: false, year: DateTime.now().year);
+      return BirthdayConfig.fromFirestore(snap);
+    });
+  }
+
+  Future<BirthdayConfig> getBirthdayConfig(String uid) async {
+    final snap = await _db.collection('users').doc(uid).collection('birthday').doc('config').get();
     return BirthdayConfig.fromFirestore(snap);
   }
 
-  Future<void> updateBirthdayConfig(BirthdayConfig config) async {
-    await _db.collection('config').doc('birthday').set(config.toMap());
+  Future<void> updateBirthdayConfig(String uid, BirthdayConfig config) async {
+    final batch = _db.batch();
+    batch.set(_db.collection('users').doc(uid).collection('birthday').doc('config'), config.toMap());
+    batch.update(_db.collection('users').doc(uid), {
+      'isBirthdayEnabled': config.enabled,
+      'birthdayYear': config.year,
+    });
+    await batch.commit();
   }
 
-
-  Stream<BirthdayContent> birthdayContentStream() {
-    return _db.collection('config').doc('birthday_content').snapshots().map((snap) {
+  Stream<BirthdayContent> birthdayContentStream(String uid) {
+    return _db.collection('users').doc(uid).collection('birthday').doc('content').snapshots().map((snap) {
       if (!snap.exists) return BirthdayContent.defaultContent();
       return BirthdayContent.fromFirestore(snap);
     });
   }
-  Future<BirthdayContent> getBirthdayContent() async {
-    final snap = await _db.collection('config').doc('birthday_content').get();
+
+  Future<BirthdayContent> getBirthdayContent(String uid) async {
+    final snap = await _db.collection('users').doc(uid).collection('birthday').doc('content').get();
 
     if (!snap.exists) {
       return BirthdayContent.defaultContent();
@@ -488,8 +501,9 @@ class FirestoreService {
 
     return BirthdayContent.fromFirestore(snap);
   }
-  Future<void> updateBirthdayContent(BirthdayContent content) async {
-    await _db.collection('config').doc('birthday_content').set(content.toMap());
+
+  Future<void> updateBirthdayContent(String uid, BirthdayContent content) async {
+    await _db.collection('users').doc(uid).collection('birthday').doc('content').set(content.toMap());
   }
 
   Future<void> updateBirthdayCompleted(String uid, int year) async {

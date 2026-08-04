@@ -9,7 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/auth/data/auth_service.dart';
 import 'package:nowplaying/features/auth/domain/user_model.dart';
-import 'package:nowplaying/features/birthday/presentation/birthday_admin_screen.dart';
+import 'package:nowplaying/features/birthday/data/birthday_providers.dart';
 import 'package:nowplaying/features/period_tracker/presentation/period_tracker_screen.dart';
 import 'package:nowplaying/shared/data/firestore_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -74,8 +74,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               title: const Text('Male'),
               trailing: currentGender == 'Male' ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
               onTap: () async {
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                final router = GoRouter.of(context);
                 await ref.read(firestoreServiceProvider).updateGender(uid, 'Male');
-                if (mounted) context.pop();
+                if (mounted) router.pop();
               },
             ),
             ListTile(
@@ -83,8 +85,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               title: const Text('Female'),
               trailing: currentGender == 'Female' ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
               onTap: () async {
+                final router = GoRouter.of(context);
                 await ref.read(firestoreServiceProvider).updateGender(uid, 'Female');
-                if (mounted) context.pop();
+                if (mounted) router.pop();
               },
             ),
             ListTile(
@@ -94,8 +97,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ? const Icon(Icons.check_circle, color: AppColors.primary)
                   : null,
               onTap: () async {
+                final router = GoRouter.of(context);
                 await ref.read(firestoreServiceProvider).updateGender(uid, 'Other');
-                if (mounted) context.pop();
+                if (mounted) router.pop();
               },
             ),
             const SizedBox(height: 16),
@@ -110,6 +114,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final userAsync = ref.watch(userProvider(uid));
     final packageInfoAsync = ref.watch(packageInfoProvider);
+    final globalBirthdayConfigAsync = ref.watch(globalBirthdayConfigProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -246,18 +251,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       onTap: () => _showGenderPicker(uid, user.gender),
                     ),
                     const Divider(height: 1, color: AppColors.border),
-                    _SettingsTile(
-                      icon: Icons.cake_outlined,
-                      label: 'Birthday Setup',
-                      subtitle: 'Manage partner experience',
-                      onTap: () {
-                        context.push(
-                          '/birthday-admin',
-                          extra: user,
+                    globalBirthdayConfigAsync.when(
+                      data: (config) {
+
+                        // Check if setup is enabled globally
+                        final isSetupEnabled = (config.enabled);
+                        if (!isSetupEnabled) return const SizedBox.shrink();
+                        
+                        return Column(
+                          children: [
+                            _SettingsTile(
+                              icon: Icons.cake_outlined,
+                              label: 'Partner\'s Birthday Surprise',
+                              subtitle: 'Plan a surprise for your partner',
+                              onTap: () {
+                                context.push(
+                                  '/birthday-setup',
+                                  extra: user,
+                                );
+                              },
+                            ),
+                            const Divider(height: 1, color: AppColors.border),
+                          ],
                         );
                       },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, _) => const SizedBox.shrink(),
                     ),
-                    const Divider(height: 1, color: AppColors.border),
                     packageInfoAsync.when(
                       data: (info) => _SettingsTile(
                         icon: Icons.info_outline_rounded,
@@ -401,7 +421,7 @@ class _SharingToggle extends ConsumerWidget {
           ),
           Switch.adaptive(
             value: isSharingEnabled,
-            activeColor: AppColors.primary,
+            activeTrackColor: AppColors.primary,
             onChanged: (val) async {
               await ref.read(firestoreServiceProvider).updateSharingEnabled(uid, val);
             },

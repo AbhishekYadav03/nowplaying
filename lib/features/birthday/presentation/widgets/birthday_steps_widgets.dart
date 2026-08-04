@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:confetti/confetti.dart';
@@ -9,14 +10,52 @@ import 'package:nowplaying/features/birthday/domain/birthday_model.dart';
 
 class BirthdayStepContainer extends StatelessWidget {
   final Widget child;
-  const BirthdayStepContainer({super.key, required this.child});
+  final bool showBackground;
+  const BirthdayStepContainer({super.key, required this.child, this.showBackground = true});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
-      child: Center(child: child),
+    if (!showBackground) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
+        child: Center(child: child),
+      );
+    }
+
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 400),
+        margin: const EdgeInsets.symmetric(horizontal: 24),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(40),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(40),
+                border: Border.all(color: Colors.white.withOpacity(0.08), width: 0.8),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.06),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+              padding: const EdgeInsets.all(32),
+              child: child,
+            ),
+          ),
+        ),
+      ).animate(onPlay: (c) => c.repeat(reverse: true)).moveY(
+            begin: 0,
+            end: 8,
+            duration: 3.seconds,
+            curve: Curves.easeInOutSine,
+          ),
     );
   }
 }
@@ -30,13 +69,21 @@ class TypewriterStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BirthdayStepContainer(
+      showBackground: false,
       child: DefaultTextStyle(
         style: GoogleFonts.philosopher(
-          fontSize: 28,
+          fontSize: 32,
           fontWeight: FontWeight.w400,
           color: Colors.white,
           height: 1.6,
           letterSpacing: 0.5,
+          shadows: [
+            Shadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         textAlign: TextAlign.center,
         child: AnimatedTextKit(
@@ -96,7 +143,7 @@ class _ChapterStepState extends State<ChapterStep> {
                 letterSpacing: -1,
               ),
             ).animate().fadeIn(delay: 300.ms, duration: 800.ms).scale(begin: const Offset(0.9, 0.9)),
-            const SizedBox(height: 60),
+             SizedBox(height: 60,width:double.infinity,),
             GestureDetector(
               onTap: () => setState(() => _isOpen = true),
               child: Container(
@@ -134,17 +181,17 @@ class _ChapterStepState extends State<ChapterStep> {
             ).animate().fadeIn(delay: 800.ms).scale(curve: Curves.elasticOut),
           ] else ...[
             Container(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.03),
-                borderRadius: BorderRadius.circular(32),
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: Colors.white12),
               ),
               child: Text(
                 widget.chapter.content,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.philosopher(
-                  fontSize: 22,
+                  fontSize: 20,
                   color: Colors.white.withOpacity(0.9),
                   height: 1.8,
                   fontStyle: FontStyle.italic,
@@ -171,34 +218,52 @@ class _ChapterStepState extends State<ChapterStep> {
   }
 }
 
-class May8Step extends StatelessWidget {
+class SpecialDayStep extends StatelessWidget {
   final String title;
   final String message;
   final VoidCallback onNext;
 
-  const May8Step({super.key, required this.title, required this.message, required this.onNext});
+  const SpecialDayStep({super.key, required this.title, required this.message, required this.onNext});
 
   @override
   Widget build(BuildContext context) {
     return BirthdayStepContainer(
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(height: 20),
-            ShaderMask(
-              shaderCallback: (bounds) => AppColors.brandGradient.createShader(bounds),
-              child: Text(
-                title,
-                style: GoogleFonts.philosopher(
-                  fontSize: 72,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: -2,
-                ),
-              ),
-            ).animate().fadeIn(duration: 1.seconds).scale(curve: Curves.elasticOut),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Floating particles effect
+          for (int i = 0; i < 15; i++)
+            Positioned(
+              left: Random().nextDouble() * 300 - 150,
+              top: Random().nextDouble() * 500 - 250,
+              child: Container(
+                width: 4,
+                height: 4,
+                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              )
+                  .animate(onPlay: (c) => c.repeat())
+                  .moveY(begin: 0, end: -100, duration: (2000 + Random().nextInt(2000)).ms)
+                  .fadeOut(duration: 2000.ms),
+            ),
+          SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 10),
+                ShaderMask(
+                  shaderCallback: (bounds) => AppColors.brandGradient.createShader(bounds),
+                  child: Text(
+                    title,
+                    style: GoogleFonts.philosopher(
+                      fontSize: 72,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: -2,
+                    ),
+                  ),
+                ).animate().fadeIn(duration: 1.seconds).scale(curve: Curves.elasticOut),
             const SizedBox(height: 30),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -248,8 +313,8 @@ class May8Step extends StatelessWidget {
             const SizedBox(height: 20),
           ],
         ),
-      ),
-    );
+      ),]
+    ),);
   }
 }
 
@@ -554,19 +619,22 @@ class CakeStep extends StatefulWidget {
   State<CakeStep> createState() => _CakeStepState();
 }
 
-class _CakeStepState extends State<CakeStep> {
+class _CakeStepState extends State<CakeStep> with TickerProviderStateMixin {
   bool _isBlown = false;
   late ConfettiController _confettiController;
+  late AnimationController _flameController;
 
   @override
   void initState() {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 5));
+    _flameController = AnimationController(vsync: this, duration: 1.seconds)..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _confettiController.dispose();
+    _flameController.dispose();
     super.dispose();
   }
 
@@ -580,158 +648,300 @@ class _CakeStepState extends State<CakeStep> {
   @override
   Widget build(BuildContext context) {
     return BirthdayStepContainer(
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Align(
-              alignment: Alignment.topCenter,
-              child: ConfettiWidget(
-                confettiController: _confettiController,
-                blastDirectionality: BlastDirectionality.explosive,
-                shouldLoop: false,
-                colors: const [Colors.pink, Colors.purple, Colors.orange, Colors.white, Colors.cyan],
-                gravity: 0.1,
-                numberOfParticles: 50,
-              ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirectionality: BlastDirectionality.explosive,
+              shouldLoop: false,
+              colors: const [Colors.pink, Colors.purple, Colors.orange, Colors.white, Colors.cyan],
+              gravity: 0.1,
+              numberOfParticles: 50,
             ),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(height: 20),
-                Text(
-                  'MAKE A WISH',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 12,
-                    color: AppColors.textTertiary,
-                    letterSpacing: 6,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ).animate().fadeIn(),
-                const SizedBox(height: 40),
-                GestureDetector(
-                  onTap: _blow,
-                  child: Column(
-                    children: [
-                      Stack(
-                        alignment: Alignment.bottomCenter,
-                        clipBehavior: Clip.none,
-                        children: [
-                          // Cake Glow
-                          if (!_isBlown)
-                            Container(
-                              width: 150,
-                              height: 150,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.orange.withOpacity(0.15),
-                                    blurRadius: 60,
-                                    spreadRadius: 20,
-                                  ),
-                                ],
-                              ),
-                            ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
-                                  begin: const Offset(0.8, 0.8),
-                                  end: const Offset(1.2, 1.2),
-                                  duration: 2.seconds,
-                                ),
-                          
-                          // Replacing Icon with a custom Drawn Cake
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Candle
-                            if (!_isBlown)
-                              Container(
-                                width: 8,
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                            // Cake Top Tier
-                            Container(
-                              width: 80,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.pink.shade200,
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-                                border: Border.all(color: Colors.white24),
-                              ),
-                            ),
-                            // Cake Bottom Tier
-                            Container(
-                              width: 120,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: Colors.pink.shade300,
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-                                border: Border.all(color: Colors.white24),
-                              ),
-                            ),
-                          ],
-                        )
-                              .animate(target: _isBlown ? 1 : 0)
-                              .scale(begin: const Offset(1, 1), end: const Offset(1.1, 1.1), duration: 400.ms),
-                          
-                          if (!_isBlown)
-                            Positioned(
-                              top: -45, // Adjust based on candle height
-                              child: const Icon(Icons.fireplace_rounded, color: Colors.orangeAccent, size: 40)
-                                  .animate(onPlay: (c) => c.repeat())
-                                  .scale(begin: const Offset(1, 1), end: const Offset(1.3, 1.3), duration: 600.ms)
-                                  .moveY(begin: 0, end: -5, duration: 600.ms),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 40),
-                      if (!_isBlown)
-
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white10),
-                          ),
-                          child: Text(
-                            'Tap the candle to blow it out',
-                            style: GoogleFonts.montserrat(
-                              color: Colors.white60,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ).animate(onPlay: (c) => c.repeat(reverse: true)).fadeIn(duration: 1.seconds),
-                    ],
-                  ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'MAKE A WISH',
+                style: GoogleFonts.montserrat(
+                  fontSize: 12,
+                  color: AppColors.textTertiary,
+                  letterSpacing: 6,
+                  fontWeight: FontWeight.w700,
                 ),
-                if (_isBlown) ...[
-                  const SizedBox(height: 40),
-                  Text(
-                    widget.message,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.philosopher(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      height: 1.4,
-                    ),
-                  ).animate().fadeIn(duration: 800.ms).scale(begin: const Offset(0.8, 0.8)),
-                ],
-                const SizedBox(height: 20),
-              ],
-            ),
-          ],
-        ),
+              ).animate().fadeIn(),
+              const SizedBox(height: 60),
+              GestureDetector(
+                onTap: _blow,
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Magical Glow behind the cake
+                    if (!_isBlown)
+                      _buildCandleGlow()
+                          .animate(onPlay: (c) => c.repeat(reverse: true))
+                          .scale(begin: const Offset(0.8, 0.8), end: const Offset(1.2, 1.2), duration: 2.seconds),
+
+                    // The Redesigned Glass Cake
+                    _buildGlassCake(),
+
+                    // The Dancing Flame
+                    if (!_isBlown)
+                      Positioned(
+                        top: 0, // Adjusted to sit directly on the candle
+                        child: _buildDancingFlame(),
+                      ),
+
+                    // Wisp of Smoke when blown
+                    if (_isBlown)
+                      Positioned(
+                        top: -40,
+                        child: _buildSmokeWisp(),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 60),
+              if (!_isBlown)
+                _buildInstructionText()
+              else
+                _buildWishMessage(),
+            ],
+          ),
+        ],
       ),
     );
   }
+
+  Widget _buildCandleGlow() {
+    return Container(
+      width: 200,
+      height: 200,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.12),
+            blurRadius: 80,
+            spreadRadius: 20,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGlassCake() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Candle
+        if (!_isBlown)
+          Container(
+            width: 10,
+            height: 40,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.white, Colors.white.withOpacity(0.9)],
+              ),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.white.withOpacity(0.5), width: 0.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withOpacity(0.4),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+          ),
+        // Top Tier
+
+        _buildCakeTier(width: 90, height: 45, color: Colors.pink.withOpacity(0.4)),
+        // Bottom Tier
+        _buildCakeTier(width: 140, height: 65, color: Colors.pink.withOpacity(0.5)),
+      ],
+    ).animate(target: _isBlown ? 1 : 0).scale(
+          begin: const Offset(1, 1),
+          end: const Offset(1.05, 1.05),
+          duration: 400.ms,
+          curve: Curves.easeOutBack,
+        );
+  }
+
+  Widget _buildCakeTier({required double width, required double height, required Color color}) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.2),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.3),
+            Colors.transparent,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // "Drip" or icing detail
+          Positioned(
+            top: 0,
+            left: 10,
+            right: 10,
+            child: Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    
+  }
+
+  Widget _buildDancingFlame() {
+    return AnimatedBuilder(
+      animation: _flameController,
+      builder: (context, child) {
+        return Container(
+          width: 30,
+          height: 45,
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              colors: [
+                Colors.orangeAccent,
+                Colors.orange.withOpacity(0.6),
+                Colors.transparent,
+              ],
+            ),
+          ),
+          child: CustomPaint(
+            painter: FlamePainter(_flameController.value),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSmokeWisp() {
+    return Container(
+      width: 2,
+      height: 20,
+      color: Colors.white24,
+    )
+        .animate()
+        .moveY(begin: 0, end: -40, duration: 2.seconds, curve: Curves.easeOut)
+        .fadeOut(duration: 2.seconds)
+        .blur(begin: const Offset(0, 0), end: const Offset(10, 10));
+  }
+
+  Widget _buildInstructionText() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Text(
+        'Tap the candle to blow it out',
+        style: GoogleFonts.montserrat(
+          color: Colors.white60,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1,
+        ),
+      ),
+    ).animate(onPlay: (c) => c.repeat(reverse: true)).fadeIn(duration: 1.seconds).scale(begin: const Offset(0.95, 0.95));
+  }
+
+  Widget _buildWishMessage() {
+    return Text(
+      widget.message,
+      textAlign: TextAlign.center,
+      style: GoogleFonts.philosopher(
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        color: Colors.white,
+        height: 1.4,
+        shadows: [
+          Shadow(color: AppColors.primary.withOpacity(0.5), blurRadius: 20),
+        ],
+      ),
+    ).animate().fadeIn(duration: 1.seconds).scale(begin: const Offset(0.8, 0.8), curve: Curves.easeOutBack);
+  }
+}
+
+class FlamePainter extends CustomPainter {
+  final double value;
+  FlamePainter(this.value);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.orangeAccent
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+    final path = Path();
+    final centerX = size.width / 2;
+    final bottomY = size.height;
+
+    // Wobble effect
+    final wobble = sin(value * pi * 2) * 2;
+
+    path.moveTo(centerX, bottomY);
+    path.quadraticBezierTo(
+      centerX - 12 - wobble, bottomY - 15,
+      centerX - wobble, 5,
+    );
+    path.quadraticBezierTo(
+      centerX + 12 - wobble, bottomY - 15,
+      centerX, bottomY,
+    );
+    path.close();
+
+    canvas.drawPath(path, paint);
+
+    // Inner brighter core
+    paint.color = Colors.white.withOpacity(0.8);
+    final corePath = Path();
+    corePath.moveTo(centerX, bottomY - 5);
+    corePath.quadraticBezierTo(
+      centerX - 6 - (wobble * 0.5), bottomY - 15,
+      centerX - (wobble * 0.5), 15,
+    );
+    corePath.quadraticBezierTo(
+      centerX + 6 - (wobble * 0.5), bottomY - 15,
+      centerX, bottomY - 5,
+    );
+    corePath.close();
+    canvas.drawPath(corePath, paint);
+  }
+
+  @override
+  bool shouldRepaint(FlamePainter oldDelegate) => true;
 }
 
 class FinalLetterStep extends StatelessWidget {
@@ -745,6 +955,7 @@ class FinalLetterStep extends StatelessWidget {
     return BirthdayStepContainer(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             padding: const EdgeInsets.all(4),
@@ -755,7 +966,7 @@ class FinalLetterStep extends StatelessWidget {
             child: const Icon(Icons.mail_outline_rounded, color: Colors.white30, size: 24),
           ).animate().fadeIn().scale(),
           const SizedBox(height: 40),
-          Expanded(
+          Center(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Container(
@@ -766,8 +977,7 @@ class FinalLetterStep extends StatelessWidget {
                   style: GoogleFonts.philosopher(
                     fontSize: 22,
                     color: Colors.white.withOpacity(0.95),
-                    height: 1.8,
-                    fontStyle: FontStyle.italic,
+                    height: 1.4,
                   ),
                 ).animate().fadeIn(duration: 2.seconds),
               ),
