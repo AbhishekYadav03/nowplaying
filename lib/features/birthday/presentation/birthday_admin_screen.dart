@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/auth/domain/user_model.dart';
@@ -80,14 +81,12 @@ class _BirthdayAdminScreenState extends ConsumerState<BirthdayAdminScreen> {
           contentAsync.when(
             data: (content) => TextButton(
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BirthdayExperienceScreen(
-                      content: content,
-                      year: DateTime.now().year,
-                    ),
-                  ),
+                context.push(
+                  '/birthday-experience',
+                  extra: {
+                    'content': content,
+                    'year': DateTime.now().year,
+                  },
                 );
               },
               child: const Text('Preview'),

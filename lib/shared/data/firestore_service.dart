@@ -463,6 +463,11 @@ class FirestoreService {
     });
   }
 
+  Future<BirthdayConfig> getBirthdayConfig() async {
+    final snap = await _db.collection('config').doc('birthday').get();
+    return BirthdayConfig.fromFirestore(snap);
+  }
+
   Future<void> updateBirthdayConfig(BirthdayConfig config) async {
     await _db.collection('config').doc('birthday').set(config.toMap());
   }
@@ -474,7 +479,15 @@ class FirestoreService {
       return BirthdayContent.fromFirestore(snap);
     });
   }
+  Future<BirthdayContent> getBirthdayContent() async {
+    final snap = await _db.collection('config').doc('birthday_content').get();
 
+    if (!snap.exists) {
+      return BirthdayContent.defaultContent();
+    }
+
+    return BirthdayContent.fromFirestore(snap);
+  }
   Future<void> updateBirthdayContent(BirthdayContent content) async {
     await _db.collection('config').doc('birthday_content').set(content.toMap());
   }

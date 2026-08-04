@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/birthday/domain/birthday_model.dart';
 import 'package:nowplaying/features/birthday/presentation/widgets/birthday_steps_widgets.dart';
@@ -24,8 +25,12 @@ class _BirthdayExperienceScreenState extends ConsumerState<BirthdayExperienceScr
   bool _isFinished = false;
 
   void _next() {
-    if (_currentStep < 8) {
-      _pageController.nextPage(duration: const Duration(milliseconds: 800), curve: Curves.easeInOutCubic);
+    final totalSteps = widget.content.chapters.length + 7;
+    if (_currentStep < totalSteps - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOutCubic,
+      );
     }
   }
 
@@ -77,13 +82,15 @@ class _BirthdayExperienceScreenState extends ConsumerState<BirthdayExperienceScr
                     if (uid != null) {
                       ref.read(firestoreServiceProvider).updateBirthdayCompleted(uid, widget.year);
                     }
-
                     // Auto-close after animation sequence
-                    Future.delayed(5.seconds, () {
-                      if (mounted && Navigator.canPop(context)) {
-                        Navigator.pop(context);
+                    final router = GoRouter.of(context);
+
+                    Future.delayed(const Duration(seconds: 5), () {
+                      if (!mounted) return;
+
+                      if (router.canPop()) {
+                        router.pop();
                       }
-                      
                     });
                   },
                 ),

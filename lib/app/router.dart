@@ -2,7 +2,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nowplaying/features/auth/domain/user_model.dart';
 import 'package:nowplaying/features/auth/presentation/auth_screen.dart';
+import 'package:nowplaying/features/birthday/presentation/birthday_admin_screen.dart';
+import 'package:nowplaying/features/birthday/presentation/birthday_experience_screen.dart';
 import 'package:nowplaying/features/feed/presentation/feed_screen.dart';
 import 'package:nowplaying/features/friends/presentation/friends_screen.dart';
 import 'package:nowplaying/features/profile/presentation/profile_screen.dart';
@@ -29,6 +32,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profile', pageBuilder: (context, state) => _fadeRoute(const ProfileScreen(), state)),
         ],
       ),
+      GoRoute(
+        path: '/birthday-experience',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>;
+
+          return BirthdayExperienceScreen(content: extra['content'], year: extra['year'] as int);
+        },
+      ),
+      GoRoute(
+        path: '/birthday-admin',
+        builder: (context, state) {
+          final user = state.extra as UserModel;
+
+          return BirthdayAdminScreen(user: user);
+        },
+      ),
     ],
   );
 });
@@ -47,5 +66,3 @@ class _AuthChangeNotifier extends ChangeNotifier {
     FirebaseAuth.instance.authStateChanges().listen((_) => notifyListeners());
   }
 }
-
-

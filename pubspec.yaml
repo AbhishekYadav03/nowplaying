@@ -1,6 +1,6 @@
 name: nowplaying
 description: Real-time media sharing for friends and couples.
-version: 1.0.31+43
+version: 1.0.34+44
 publish_to: none
 
 environment:

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/auth/domain/user_model.dart';
 import 'package:nowplaying/features/birthday/domain/birthday_model.dart';
@@ -40,34 +41,57 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
   }
 
   Future<void> _checkBirthday() async {
-    // Wait for providers to be ready
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return;
+    // Give providers some time to initialize
+    await Future.delayed(const Duration(seconds: 2));
 
-      final user = ref.read(userStreamProvider(uid)).value;
-      if (user == null || user.partnerBirthday == null) return;
+    if (!mounted) return;
 
-      final now = DateTime.now();
-      final isBirthday = user.partnerBirthday!.month == now.month && user.partnerBirthday!.day == now.day;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    // print('Checking birthday for user: $uid');
+    if (uid == null) return;
 
-      if (isBirthday) {
-        final config = ref.read(birthdayConfigStreamProvider).value;
-        if (config != null && config.enabled && user.birthdayCompleted != config.year) {
-          final content = ref.read(birthdayContentStreamProvider).value;
-          if (content != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => BirthdayExperienceScreen(content: content, year: config.year),
-              ),
-            );
-          }
-        }
-      }
-    });
+    // Get current user
+    final user = await ref.read(userStreamProvider(uid).future);
+    if (user?.partnerId == null) return;
+    // print('Partner ID: ${user!.partnerId}');
+
+
+    // Get partner
+    final firestore = ref.read(firestoreServiceProvider);
+    final partner = await firestore.getUser(user!.partnerId!);
+    // print('Partner: ${partner?.displayName}');
+
+    if (!mounted) return;
+
+    if (partner == null || partner.partnerBirthday == null) return;
+
+    final now = DateTime.now();
+    final isBirthday = partner.partnerBirthday!.month == now.month &&
+        partner.partnerBirthday!.day == now.day;
+    // print('Is birthday: $isBirthday');
+    if (!isBirthday) return;
+    // Wait until config is available
+    final config = await firestore.getBirthdayConfig();
+    // print('Birthday config: ${config.enabled}, year: ${config.year}');
+    if (!config.enabled) return;
+
+    // Already completed this year's birthday experience
+    if (user.birthdayCompleted == config.year) return;
+    // print('Birthday experience not completed for year: ${config.year}');
+
+    // Wait until content is available
+    final content = await firestore.getBirthdayContent();
+    // print('Birthday content: ${content.chapters.length} items');
+
+    if (!mounted) return;
+
+    context.push(
+      '/birthday-experience',
+      extra: {
+        'content': content,
+        'year': config.year,
+      },
+    );
   }
 
   @override
@@ -158,6 +182,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> with WidgetsBindingObse
 
 class HeaderLabel extends StatelessWidget {
   const HeaderLabel({super.key, required this.label});
+
   final String label;
 
   @override
@@ -179,6 +204,7 @@ class HeaderLabel extends StatelessWidget {
 
 class _HeaderSection extends ConsumerWidget {
   final String uid;
+
   const _HeaderSection({required this.uid});
 
   @override
@@ -200,6 +226,7 @@ class _HeaderSection extends ConsumerWidget {
 
 class _FeedList extends ConsumerWidget {
   final String uid;
+
   const _FeedList({required this.uid});
 
   @override
@@ -424,6 +451,7 @@ class _OnlineStatusSection extends ConsumerWidget {
   const _OnlineStatusSection({required this.uid});
 
   final String uid;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final friendsStatusAsync = ref.watch(friendsStatusStreamProvider(uid));
@@ -533,5 +561,3 @@ class _OnlineIndicator extends StatelessWidget {
     );
   }
 }
-
-

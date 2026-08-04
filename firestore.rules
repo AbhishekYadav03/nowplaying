@@ -2,55 +2,133 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helpers ───────────────────────────────────────────────────────────
+
+    // =========================================================================
+    // Helper Functions
+    // =========================================================================
+
+    // Checks whether the authenticated user owns the document or partner
+    function isOwnerOrPartner(uid) {
+      let user = get(/databases/$(database)/documents/users/$(uid)).data;
+      return request.auth.uid == uid || request.auth.uid == user.partnerId;
+    }
+
+    // Returns true if the user is authenticated.
     function isSignedIn() {
       return request.auth != null;
     }
 
+    // Checks whether the authenticated user owns the document.
     function isOwner(uid) {
       return request.auth.uid == uid;
     }
 
+    // Checks whether the authenticated user exists in the target user's
+    // friends array.
     function isFriendOf(uid) {
       return request.auth.uid in get(/databases/$(database)/documents/users/$(uid)).data.friends;
     }
 
-    // ── Users ──────────────────────────────────────────────────────────────
+    // =========================================================================
+    // USERS COLLECTION
+    // Path: /users/{uid}
+    // =========================================================================
     match /users/{uid} {
-      // Any signed-in user can read another user's basic profile (for friend search)
+
+      // 📖 Read
+      // Any logged-in user can read user profiles.
+      // This is useful for searching friends or displaying usernames.
       allow read: if isSignedIn();
-      // Only the owner can write their own user doc
+
+      // ✏️ Write
+      // Users may only create/update/delete their own profile.
       allow write: if isOwner(uid);
     }
 
-    // ── Now Playing ────────────────────────────────────────────────────────
+    // =========================================================================
+    // NOW PLAYING COLLECTION
+    // Path: /nowplaying/{uid}
+    // =========================================================================
     match /nowplaying/{uid} {
-      // Only the owner can write their now-playing
+
+      // ✏️ Write
+      // Only the owner can update their own "Now Playing" status.
       allow write: if isOwner(uid);
-      // Only confirmed friends OR the owner can read
+
+      // 📖 Read
+      // The owner can always view it.
+      // Friends can also view it.
       allow read: if isOwner(uid) || isFriendOf(uid);
 
-      // ── Reactions ────────────────────────────────────────────────────────
+      // =======================================================================
+      // REACTIONS SUBCOLLECTION
+      // Path: /nowplaying/{uid}/reactions/{reactionId}
+      // =======================================================================
       match /reactions/{reactionId} {
-        // Only confirmed friends can create a reaction
-        allow create: if isSignedIn() && isFriendOf(uid)
+
+        // ➕ Create
+        // Only friends can react.
+        //
+        // Additional validation:
+        // 1. User must be logged in.
+        // 2. User must actually be a friend.
+        // 3. fromUid cannot be spoofed.
+        // 4. Emoji must be a string.
+        // 5. Emoji length limited to 10 characters.
+        allow create: if
+          isSignedIn()
+          && isFriendOf(uid)
           && request.resource.data.fromUid == request.auth.uid
           && request.resource.data.emoji is string
           && request.resource.data.emoji.size() <= 10;
-        // Owner and the sender can read reactions
-        allow read: if isOwner(uid) || request.auth.uid == resource.data.fromUid;
-        // No updates or deletes from client
+
+        // 📖 Read
+        // Only:
+        // • Owner of the Now Playing document
+        // • Person who sent the reaction
+        allow read: if
+          isOwner(uid)
+          || request.auth.uid == resource.data.fromUid;
+
+        // ❌ Prevent edits and deletion from clients.
+        // Reactions are immutable once created.
         allow update, delete: if false;
       }
     }
 
-    // ── Birthday & Config ──────────────────────────────────────────────────
+    // =========================================================================
+    // CONFIG COLLECTION
+    // Path: /config/{configId}
+    // =========================================================================
     match /config/{configId} {
-      // Any signed-in user can read config (needed for the experience)
+
+      // 📖 Read
+      // Any authenticated user can read configuration documents.
       allow read: if isSignedIn();
-      // Only signed-in users can write to birthday config (admin access)
-      // Note: In a production app, you might want to restrict this to specific admin UIDs.
+
+      // ✏️ Write
+      // Currently every authenticated user can modify config.
+      //
+      // ⚠️ In production this should usually be restricted to
+      // administrators or Cloud Functions.
       allow write: if isSignedIn();
     }
+
+    // ============================================================================
+    // Period Tracker
+    // Owner and linked partner can access all period tracker data.
+    // ============================================================================
+
+    match /users/{uid}/period_tracker/{document=**} {
+
+      // Owner or partner can read.
+      allow read: if request.auth != null &&
+                   isOwnerOrPartner(uid);
+
+      // Owner or partner can create, update and delete.
+      allow write: if request.auth != null &&
+                    isOwnerOrPartner(uid);
+    }
+
   }
 }

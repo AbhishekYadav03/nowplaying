@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:nowplaying/core/theme/theme.dart';
 import 'package:nowplaying/features/auth/data/auth_service.dart';
@@ -74,7 +75,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               trailing: currentGender == 'Male' ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
               onTap: () async {
                 await ref.read(firestoreServiceProvider).updateGender(uid, 'Male');
-                if (mounted) Navigator.pop(context);
+                if (mounted) context.pop();
               },
             ),
             ListTile(
@@ -83,7 +84,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               trailing: currentGender == 'Female' ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
               onTap: () async {
                 await ref.read(firestoreServiceProvider).updateGender(uid, 'Female');
-                if (mounted) Navigator.pop(context);
+                if (mounted) context.pop();
               },
             ),
             ListTile(
@@ -94,7 +95,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   : null,
               onTap: () async {
                 await ref.read(firestoreServiceProvider).updateGender(uid, 'Other');
-                if (mounted) Navigator.pop(context);
+                if (mounted) context.pop();
               },
             ),
             const SizedBox(height: 16),
@@ -250,9 +251,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       label: 'Birthday Setup',
                       subtitle: 'Manage partner experience',
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => BirthdayAdminScreen(user: user)),
+                        context.push(
+                          '/birthday-admin',
+                          extra: user,
                         );
                       },
                     ),
